@@ -87,7 +87,7 @@
             <div id="log-view" class="hidden bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10">
                 <h2 class="text-2xl font-bold text-cyan-300 mb-4">Tüketim Günlüğüm</h2>
                 <div id="log-list" class="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
-                    <!-- Günlük kayıtları buraya dinamik olarak eklenecek -->
+                    <p class="text-gray-400">Henüz bir şey içmediniz.</p>
                 </div>
             </div>
 
@@ -129,7 +129,7 @@
                 <div>
                     <h3 class="text-xl font-bold text-cyan-300 mb-3">Kayıt Geçmişi</h3>
                     <div id="weight-history-list" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
-                        <!-- Kilo geçmişi buraya dinamik olarak eklenecek -->
+                         <p class="text-gray-400 text-sm">Henüz kilo kaydı girmediniz.</p>
                     </div>
                 </div>
             </div>
@@ -166,10 +166,8 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-detox-app';
         const GEMINI_API_KEY = "AIzaSyCxG-n6HpUKNB1_OWlurIxApRhRfgFMHfc";
 
-        let db, auth, userId, weightChart;
-        let recipes = [];
-        let dailyLog = [];
-        let weightData = [];
+        let weightChart;
+        let localRecipes = [];
 
         // --- DOM ELEMENTLERİ ---
         const views = {
@@ -203,7 +201,6 @@
             if (views[viewName]) {
                 views[viewName].classList.remove('hidden');
             }
-
             navButtons.forEach(btn => {
                 const isSelected = btn.dataset.view === viewName;
                 btn.classList.toggle('text-cyan-400', isSelected);
@@ -214,10 +211,11 @@
         }
 
         // --- RENDER FONKSİYONLARI ---
-        function renderRecipes() {
+        function renderRecipes(recipes) {
             recipesGrid.innerHTML = '';
             if (!Array.isArray(recipes) || recipes.length === 0) {
                 recipesLoader.classList.remove('hidden');
+                recipesLoader.textContent = 'Uygun tarif bulunamadı veya bir hata oluştu.';
                 return;
             }
             recipesLoader.classList.add('hidden');
@@ -250,7 +248,7 @@
             lucide.createIcons();
         }
 
-        function renderLog() {
+        function renderLog(dailyLog) {
             logList.innerHTML = '';
             if (dailyLog.length === 0) {
                 logList.innerHTML = '<p class="text-gray-400">Henüz bir şey içmediniz.</p>';
@@ -267,7 +265,7 @@
             });
         }
 
-        function updateWeightView() {
+        function renderWeightView(weightData) {
             if (weightData.length > 0) {
                 const startWeight = weightData[0].weight;
                 const currentWeight = weightData[weightData.length - 1].weight;
@@ -278,11 +276,8 @@
                 
                 totalChangeEl.textContent = `${change.toFixed(1)} kg`;
                 totalChangeEl.classList.remove('text-green-400', 'text-red-400');
-                if (change < 0) {
-                    totalChangeEl.classList.add('text-green-400');
-                } else if (change > 0) {
-                    totalChangeEl.classList.add('text-red-400');
-                }
+                if (change < 0) totalChangeEl.classList.add('text-green-400');
+                else if (change > 0) totalChangeEl.classList.add('text-red-400');
                 
                 weightHistoryListEl.innerHTML = '';
                 [...weightData].reverse().forEach(entry => {
@@ -294,24 +289,21 @@
                     `;
                     weightHistoryListEl.appendChild(item);
                 });
-
             } else {
                 startWeightEl.textContent = `- kg`;
                 currentWeightEl.textContent = `- kg`;
                 totalChangeEl.textContent = `- kg`;
                 weightHistoryListEl.innerHTML = '<p class="text-gray-400 text-sm">Henüz kilo kaydı girmediniz.</p>';
             }
-            renderWeightChart();
+            renderWeightChart(weightData);
         }
 
-        function renderWeightChart() {
+        function renderWeightChart(data) {
             const ctx = document.getElementById('weight-chart').getContext('2d');
-            const labels = weightData.map(w => new Date(w.timestamp.toDate()).toLocaleDateString('tr-TR'));
-            const data = weightData.map(w => w.weight);
+            const labels = data.map(w => new Date(w.timestamp.toDate()).toLocaleDateString('tr-TR'));
+            const weights = data.map(w => w.weight);
 
-            if (weightChart) {
-                weightChart.destroy();
-            }
+            if (weightChart) weightChart.destroy();
 
             weightChart = new Chart(ctx, {
                 type: 'line',
@@ -319,7 +311,7 @@
                     labels: labels,
                     datasets: [{
                         label: 'Kilo (kg)',
-                        data: data,
+                        data: weights,
                         borderColor: '#2DD4BF',
                         backgroundColor: 'rgba(45, 212, 191, 0.1)',
                         fill: true,
@@ -376,45 +368,21 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-
                 const result = await response.json();
-
-                if (!response.ok) {
-                    const errorDetails = result.error?.message || `API Hatası: ${response.status}.`;
-                    throw new Error(errorDetails);
-                }
-
-                if (!result.candidates || result.candidates.length === 0) {
-                    throw new Error("API'den geçerli bir tarif yanıtı alınamadı.");
-                }
+                if (!response.ok) throw new Error(result.error?.message || `API Hatası: ${response.status}.`);
+                if (!result.candidates?.[0]?.content?.parts?.[0]?.text) throw new Error("API'den geçerli bir tarif yanıtı alınamadı.");
                 
-                let text = result.candidates[0].content.parts[0].text;
+                const parsedData = JSON.parse(result.candidates[0].content.parts[0].text);
                 
-                let parsedData;
-                try {
-                    parsedData = JSON.parse(text);
-                } catch (parseError) {
-                    throw new Error("API'den gelen veri JSON formatında değil.");
-                }
-
-                if (Array.isArray(parsedData)) {
-                    recipes = parsedData;
-                } else if (parsedData && Array.isArray(parsedData.recipes)) {
-                    recipes = parsedData.recipes;
-                } else {
-                    console.error("API'den beklenen dizi veya {recipes: [...]} formatı gelmedi:", parsedData);
-                    recipes = []; 
-                    throw new Error("API'den tarif formatı anlaşılamadı.");
-                }
+                if (!Array.isArray(parsedData)) throw new Error("API'den tarif formatı anlaşılamadı.");
                 
-                renderRecipes();
+                localRecipes = parsedData;
+                renderRecipes(localRecipes);
 
             } catch (e) {
                 console.error("Gemini API hatası:", e);
                 showError(`Tarifler yüklenemedi: ${e.message}`);
-                recipes = [];
-                recipesLoader.textContent = 'Tarifler yüklenirken bir hata oluştu. Lütfen tekrar deneyin.';
-                renderRecipes();
+                renderRecipes([]);
             } finally {
                 fetchRecipesBtn.disabled = false;
                 fetchBtnText.textContent = 'Yeni Tarifler Getir';
@@ -422,50 +390,104 @@
             }
         }
 
-        async function handleAddLog(recipe) {
-            if (!db || !userId) return;
+        // --- UYGULAMA BAŞLATMA VE YÖNETİMİ ---
+        async function main() {
+            lucide.createIcons();
+            switchView('recipes');
+
             try {
-                const logCollectionPath = `artifacts/${appId}/users/${userId}/dailyLogs`;
-                await addDoc(collection(db, logCollectionPath), {
-                    recipeName: recipe.recipeName,
-                    timestamp: new Date()
+                const app = initializeApp(firebaseConfig);
+                const db = getFirestore(app);
+                const auth = getAuth(app);
+
+                const user = await new Promise((resolve, reject) => {
+                    const unsubscribe = onAuthStateChanged(auth, (user) => {
+                        unsubscribe(); 
+                        if (user) {
+                            resolve(user);
+                        } else {
+                            signInAnonymously(auth).then(cred => resolve(cred.user)).catch(reject);
+                        }
+                    });
                 });
+                
+                const userId = user.uid;
+
+                // Dinleyicileri ve olayları ayarla
+                startDataListeners(db, userId);
+                setupEventListeners(db, userId);
+                
+                // İlk tarifleri yükle
+                await fetchRecipesFromAPI();
+
             } catch (e) {
-                console.error("Günlük kaydı ekleme hatası: ", e);
-                showError("Günlüğe ekleme yapılamadı.");
+                console.error("Uygulama başlatma hatası:", e);
+                showError("Uygulama başlatılamadı. Lütfen sayfayı yenileyin.");
             }
         }
 
-        async function handleAddWeight(e) {
-            e.preventDefault();
-            const weightValue = newWeightInput.value;
-            if (!db || !userId || !weightValue || isNaN(parseFloat(weightValue))) return;
-            try {
-                const weightCollectionPath = `artifacts/${appId}/users/${userId}/weightEntries`;
-                await addDoc(collection(db, weightCollectionPath), {
-                    weight: parseFloat(weightValue),
-                    timestamp: new Date()
-                });
-                newWeightInput.value = '';
-            } catch (e) {
-                console.error("Kilo kaydı ekleme hatası: ", e);
-                showError("Kilo kaydı eklenemedi.");
-            }
+        function startDataListeners(db, userId) {
+            const logCollectionPath = `artifacts/${appId}/users/${userId}/dailyLogs`;
+            const logQuery = query(collection(db, logCollectionPath));
+            onSnapshot(logQuery, snapshot => {
+                const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                logs.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
+                renderLog(logs);
+            }, err => {
+                console.error("Günlük verisi dinleme hatası:", err);
+                showError("Günlük verileri alınamadı.");
+            });
+
+            const weightCollectionPath = `artifacts/${appId}/users/${userId}/weightEntries`;
+            const weightQuery = query(collection(db, weightCollectionPath));
+            onSnapshot(weightQuery, snapshot => {
+                const weights = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                weights.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
+                renderWeightView(weights);
+            }, err => {
+                console.error("Kilo verisi dinleme hatası:", err);
+                showError("Kilo verileri alınamadı.");
+            });
         }
 
-        // --- OLAY DİNLEYİCİLERİ (EVENT LISTENERS) ---
-        function setupEventListeners() {
+        function setupEventListeners(db, userId) {
             navButtons.forEach(btn => {
                 btn.addEventListener('click', () => switchView(btn.dataset.view));
             });
+            
             fetchRecipesBtn.addEventListener('click', fetchRecipesFromAPI);
-            weightForm.addEventListener('submit', handleAddWeight);
-            recipesGrid.addEventListener('click', (e) => {
+
+            weightForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const weightValue = newWeightInput.value;
+                if (!db || !userId || !weightValue || isNaN(parseFloat(weightValue))) return;
+                try {
+                    const weightCollectionPath = `artifacts/${appId}/users/${userId}/weightEntries`;
+                    await addDoc(collection(db, weightCollectionPath), {
+                        weight: parseFloat(weightValue),
+                        timestamp: new Date()
+                    });
+                    newWeightInput.value = '';
+                } catch (err) {
+                    console.error("Kilo kaydı ekleme hatası: ", err);
+                    showError("Kilo kaydı eklenemedi.");
+                }
+            });
+
+            recipesGrid.addEventListener('click', async (e) => {
                 const button = e.target.closest('.add-log-btn');
-                if (button) {
-                    const recipeIndex = button.dataset.recipeIndex;
-                    if (recipes[recipeIndex]) {
-                        handleAddLog(recipes[recipeIndex]);
+                if (!button) return;
+                
+                const recipeIndex = button.dataset.recipeIndex;
+                const recipe = localRecipes[recipeIndex];
+
+                if (recipe) {
+                    try {
+                        const logCollectionPath = `artifacts/${appId}/users/${userId}/dailyLogs`;
+                        await addDoc(collection(db, logCollectionPath), {
+                            recipeName: recipe.recipeName,
+                            timestamp: new Date()
+                        });
                         button.textContent = 'Eklendi!';
                         button.classList.remove('bg-cyan-500', 'hover:bg-cyan-400');
                         button.classList.add('bg-green-500');
@@ -475,59 +497,16 @@
                             button.classList.add('bg-cyan-500', 'hover:bg-cyan-400');
                             lucide.createIcons();
                         }, 2000);
+                    } catch (err) {
+                         console.error("Günlük kaydı ekleme hatası: ", err);
+                         showError("Günlüğe ekleme yapılamadı.");
                     }
                 }
             });
         }
 
-        // --- UYGULAMA BAŞLATMA ---
-        function initialize() {
-            try {
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                onAuthStateChanged(auth, user => {
-                    if (user) {
-                        userId = user.uid;
-                        startDataListeners();
-                        fetchRecipesFromAPI();
-                    } else {
-                        signInAnonymously(auth).catch(err => {
-                            console.error("Anonim oturum açma hatası:", err);
-                            showError("Oturum açılamadı. Lütfen sayfayı yenileyin.");
-                        });
-                    }
-                });
-            } catch (e) {
-                console.error("Firebase başlatma hatası:", e);
-                showError("Uygulama başlatılamadı. Lütfen daha sonra tekrar deneyin.");
-            }
-            
-            setupEventListeners();
-            lucide.createIcons();
-            switchView('recipes');
-        }
-
-        function startDataListeners() {
-            if (!db || !userId) return;
-            const logCollectionPath = `artifacts/${appId}/users/${userId}/dailyLogs`;
-            const logQuery = query(collection(db, logCollectionPath));
-            onSnapshot(logQuery, snapshot => {
-                dailyLog = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                dailyLog.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
-                renderLog();
-            });
-            const weightCollectionPath = `artifacts/${appId}/users/${userId}/weightEntries`;
-            const weightQuery = query(collection(db, weightCollectionPath));
-            onSnapshot(weightQuery, snapshot => {
-                weightData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                weightData.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
-                updateWeightView();
-            });
-        }
-
         // Uygulamayı başlat
-        initialize();
+        main();
 
     </script>
 </body>
