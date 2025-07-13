@@ -96,9 +96,16 @@
 
         <!-- Ana İçerik Alanı -->
         <main>
-            <!-- Tarif Kategorileri Görünümü -->
+            <!-- Tarif Arama ve Kategori Görünümü -->
             <div id="recipe-categories-view">
-                 <h2 class="text-2xl font-bold text-cyan-300 mb-4 text-center">Tarif Kategorileri</h2>
+                 <h2 class="text-2xl font-bold text-cyan-300 mb-4 text-center">Tarifleri Keşfet</h2>
+                 <!-- Arama Çubuğu -->
+                 <form id="recipe-search-form" class="flex gap-2 mb-6">
+                    <input id="recipe-search-input" type="search" placeholder="Örn: Naneli ve ferahlatıcı bir içecek" class="w-full bg-gray-700 text-white placeholder-gray-400 rounded-lg p-3 border-2 border-transparent focus:outline-none focus:border-cyan-400 transition-colors" />
+                    <button type="submit" class="bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold p-3 rounded-lg transition-colors"><i data-lucide="search"></i></button>
+                 </form>
+                 
+                 <h3 class="text-lg font-semibold text-gray-400 mb-4 text-center">Veya Hızlı Kategoriler</h3>
                  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <button data-category="detox" class="category-btn bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold py-8 px-4 rounded-lg flex flex-col items-center justify-center gap-2 transition-colors duration-300">
                         <i data-lucide="blender" class="w-8 h-8"></i>
@@ -124,7 +131,7 @@
                     <div id="recipes-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
                     <button id="refresh-category-btn" class="hidden mt-6 w-full bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors">
                         <i data-lucide="refresh-cw" class="w-5 h-5"></i>
-                        Bu Kategori İçin Yeni Tarifler Getir
+                        Bu Arama İçin Yeni Tarifler Getir
                     </button>
                  </div>
             </div>
@@ -241,6 +248,7 @@
         let waterData = { date: '', count: 0 };
         let notes = '';
         let chatHistory = [];
+        let lastRecipeQuery = '';
 
         // --- DOM ELEMENTLERİ ---
         const views = {
@@ -284,6 +292,8 @@
         const exerciseForm = document.getElementById('exercise-form');
         const newExerciseInput = document.getElementById('new-exercise-input');
         const exerciseListItems = document.getElementById('exercise-list-items');
+        const recipeSearchForm = document.getElementById('recipe-search-form');
+        const recipeSearchInput = document.getElementById('recipe-search-input');
 
         // --- MESAJ GÖSTERİM FONKSİYONLARI ---
         function showMessage(element, message, duration = 3000) {
@@ -539,29 +549,37 @@
             return null;
         }
 
-        async function fetchRecipes(category) {
+        async function fetchRecipes(query) {
+            lastRecipeQuery = query; // Son aramayı kaydet
             recipeListView.classList.remove('hidden');
             recipesLoader.classList.remove('hidden');
             recipesGrid.innerHTML = '';
             refreshCategoryBtn.classList.add('hidden');
-            refreshCategoryBtn.dataset.category = category;
+            refreshCategoryBtn.dataset.query = query;
             
             const categoryTitles = { detox: "Genel Detoks Tarifleri", lipoedema: "Lipödem Destek Çorbaları", diuretic: "Ödem Atıcı İçecekler", "herbal-tea": "Bitki Çayları" };
-            recipeListTitle.textContent = categoryTitles[category];
+            recipeListTitle.textContent = categoryTitles[query] || `Arama Sonuçları: "${query}"`;
 
             const creativityBooster = ["mevsimsel malzemelerle", "enerji verici", "ferahlatıcı", "antioksidan zengini", "farklı bir baharat kullanarak", "sindirim sistemini destekleyen"];
             const randomTheme = creativityBooster[Math.floor(Math.random() * creativityBooster.length)];
-            const basePrompt = `Bana kilo vermeye odaklı, ${randomTheme} hazırlanan 4 adet birbirinden farklı tarif ver.`;
-            const categoryPrompts = {
-                detox: `${basePrompt} Bu tarifler genel detoks amaçlı olsun.`,
-                lipoedema: `${basePrompt} Bu tarifler özellikle lipödem hastaları için uygun, iltihap azaltıcı ve ödem atıcı özelliklere sahip 'detoks çorbası' olsun.`,
-                diuretic: `${basePrompt} Bu tarifler ödem atıcı, ferahlatıcı ve soğuk içecekler olsun.`,
-                "herbal-tea": `${basePrompt} Bu tarifler kilo verdirici, ödem atıcı veya rahatlatıcı özelliklere sahip 'bitki çayı' olsun.`
-            };
+            
+            let prompt;
+            if (categoryTitles[query]) { // Eğer bir kategori ise
+                 const basePrompt = `Bana kilo vermeye odaklı, ${randomTheme} hazırlanan 4 adet birbirinden farklı tarif ver.`;
+                 const categoryPrompts = {
+                    detox: `${basePrompt} Bu tarifler genel detoks amaçlı olsun.`,
+                    lipoedema: `${basePrompt} Bu tarifler özellikle lipödem hastaları için uygun, iltihap azaltıcı ve ödem atıcı özelliklere sahip 'detoks çorbası' olsun.`,
+                    diuretic: `${basePrompt} Bu tarifler ödem atıcı, ferahlatıcı ve soğuk içecekler olsun.`,
+                    "herbal-tea": `${basePrompt} Bu tarifler kilo verdirici, ödem atıcı veya rahatlatıcı özelliklere sahip 'bitki çayı' olsun.`
+                 };
+                 prompt = categoryPrompts[query];
+            } else { // Eğer serbest arama ise
+                prompt = `Bana kullanıcının şu isteğine uygun 4 adet tarif ver: '${query}'. Tarifler kilo vermeye odaklı ve sağlıklı olsun.`;
+            }
             
             chatHistory = []; 
             const schema = { type: "ARRAY", items: { type: "OBJECT", properties: { recipeName: { type: "STRING" }, description: { type: "STRING" }, ingredients: { type: "ARRAY", items: { type: "STRING" } }, instructions: { type: "ARRAY", items: { type: "STRING" } } }, required: ["recipeName", "description", "ingredients", "instructions"] } };
-            const resultText = await fetchFromAPI(categoryPrompts[category], schema);
+            const resultText = await fetchFromAPI(prompt, schema);
             
             recipesLoader.classList.add('hidden');
             if (resultText) {
@@ -644,10 +662,16 @@
             }));
             
             categoryButtons.forEach(btn => btn.addEventListener('click', () => fetchRecipes(btn.dataset.category)));
-            refreshCategoryBtn.addEventListener('click', (e) => fetchRecipes(e.currentTarget.dataset.category));
+            refreshCategoryBtn.addEventListener('click', (e) => fetchRecipes(e.currentTarget.dataset.query));
             backToCategoriesBtn.addEventListener('click', () => recipeListView.classList.add('hidden'));
             lipoedemaDietBtn.addEventListener('click', () => fetchDietList('lipoedema'));
             generalDietBtn.addEventListener('click', () => fetchDietList('general'));
+            
+            recipeSearchForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const query = recipeSearchInput.value.trim();
+                if(query) fetchRecipes(query);
+            });
 
             weightForm.addEventListener('submit', (e) => {
                 e.preventDefault();
