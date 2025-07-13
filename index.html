@@ -164,7 +164,7 @@
             : { apiKey: "YOUR_API_KEY", authDomain: "YOUR_AUTH_DOMAIN", projectId: "YOUR_PROJECT_ID" };
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-detox-app';
-        const GEMINI_API_KEY = "AIzaSyCxG-n6HpUKNB1_OWlurIxApRhRfgFMHfc";
+        const GEMINI_API_KEY = "AIzaSyBPpW33vp0fo5rf9vEiJ4ii3dHC-WXxX50";
 
         let weightChart;
         let localRecipes = [];
@@ -329,8 +329,7 @@
                 }
             });
         }
-
-        // HATA DÜZELTME: API hatası durumunda devreye girecek yedek tarifler.
+        
         function getBackupRecipes() {
             return [
                 {
@@ -399,7 +398,6 @@
 
             } catch (e) {
                 console.error("Gemini API hatası:", e);
-                // HATA DÜZELTME: API hatası durumunda yedek tarifleri göster.
                 showError("Günlük API limitine ulaşıldı. Sizin için hazırladığımız özel tarifler gösteriliyor.");
                 localRecipes = getBackupRecipes();
                 renderRecipes(localRecipes);
