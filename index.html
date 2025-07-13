@@ -56,10 +56,10 @@
         .diet-table td {
             background-color: #0f172a; /* bg-slate-900 */
         }
-        .diet-table ul {
-            padding-left: 1rem;
-            margin: 0;
-            list-style-position: inside;
+        /* Alışveriş Listesi Stilleri */
+        .shopping-item.completed span {
+            text-decoration: line-through;
+            color: #64748b; /* text-slate-500 */
         }
     </style>
 </head>
@@ -76,9 +76,10 @@
                 </h1>
             </div>
             <p class="text-gray-400 mt-2">Sağlıklı yaşama modern bir dokunuş</p>
-            <!-- Hata Mesajı Alanı -->
+            <!-- Günün İpucu Alanı -->
+            <div id="tip-of-the-day" class="mt-4 text-sm text-amber-300 bg-amber-500/10 p-3 rounded-lg border border-amber-500/30 hidden"></div>
+            <!-- Mesaj Alanları -->
             <div id="error-message" class="hidden mt-4 bg-red-500/20 border border-red-500 text-red-300 p-3 rounded-lg"></div>
-            <!-- Başarı Mesajı Alanı -->
             <div id="success-message" class="hidden mt-4 bg-green-500/20 border border-green-500 text-green-300 p-3 rounded-lg"></div>
         </header>
 
@@ -136,11 +137,36 @@
                 </div>
             </div>
 
-            <!-- Diğer Görünümler (Günlük, Kilo) -->
-            <div id="log-view" class="hidden bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10">
-                <h2 class="text-2xl font-bold text-cyan-300 mb-4">Tüketim Günlüğüm</h2>
-                <div id="log-list" class="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar"><p class="text-gray-400">Henüz bir şey içmediniz.</p></div>
+            <!-- Alışveriş Listesi Görünümü -->
+            <div id="shopping-list-view" class="hidden bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-cyan-300">Alışveriş Listesi</h2>
+                    <button id="clear-shopping-list-btn" class="text-red-400 hover:text-red-300 flex items-center gap-2 text-sm"><i data-lucide="trash-2" class="w-4 h-4"></i> Listeyi Temizle</button>
+                </div>
+                <div id="shopping-list-items" class="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar"><p class="text-gray-400">Listeniz boş.</p></div>
             </div>
+
+            <!-- Günlük Panel Görünümü -->
+            <div id="dashboard-view" class="hidden space-y-6">
+                <!-- Tüketim Günlüğü -->
+                <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10">
+                    <h2 class="text-2xl font-bold text-cyan-300 mb-4">Tüketim Günlüğüm</h2>
+                    <div id="log-list" class="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar"><p class="text-gray-400">Henüz bir şey içmediniz.</p></div>
+                </div>
+                <!-- Su Takibi -->
+                <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10">
+                    <h2 class="text-2xl font-bold text-cyan-300 mb-4">Günlük Su Tüketimi</h2>
+                    <p class="text-sm text-gray-400 mb-4">Hedef: 8 Bardak (<span id="water-count">0</span>/8)</p>
+                    <div id="water-tracker" class="grid grid-cols-8 gap-2"></div>
+                </div>
+                <!-- Not Defteri -->
+                <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10">
+                    <h2 class="text-2xl font-bold text-cyan-300 mb-4">Kişisel Not Defterim</h2>
+                    <textarea id="notes-area" class="w-full h-32 bg-slate-800/50 rounded-lg p-3 text-gray-300 placeholder-gray-500 focus:outline-none focus:border-cyan-400 border-2 border-transparent transition-colors" placeholder="Bugünkü hedeflerinizi, hislerinizi veya notlarınızı buraya yazın..."></textarea>
+                </div>
+            </div>
+
+            <!-- Kilo Takibi Görünümü -->
             <div id="weight-view" class="hidden bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10 space-y-6">
                 <h2 class="text-2xl font-bold text-cyan-300">Kilo Gelişim Panosu</h2>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
@@ -165,7 +191,8 @@
     <nav class="fixed bottom-0 left-0 right-0 bg-gray-900/80 backdrop-blur-sm border-t border-cyan-500/30 p-2 flex justify-around">
         <button data-view="recipe-categories" class="nav-btn flex flex-col items-center justify-center w-full py-2 rounded-lg transition-colors duration-300 text-cyan-400 bg-cyan-500/10"><i data-lucide="book-open"></i><span class="text-xs mt-1 font-medium">Tarifler</span></button>
         <button data-view="diet" class="nav-btn flex flex-col items-center justify-center w-full py-2 rounded-lg transition-colors duration-300 text-gray-400 hover:bg-gray-700/50"><i data-lucide="clipboard-list"></i><span class="text-xs mt-1 font-medium">Beslenme Planı</span></button>
-        <button data-view="log" class="nav-btn flex flex-col items-center justify-center w-full py-2 rounded-lg transition-colors duration-300 text-gray-400 hover:bg-gray-700/50"><i data-lucide="glass-water"></i><span class="text-xs mt-1 font-medium">Günlüğüm</span></button>
+        <button data-view="dashboard" class="nav-btn flex flex-col items-center justify-center w-full py-2 rounded-lg transition-colors duration-300 text-gray-400 hover:bg-gray-700/50"><i data-lucide="layout-dashboard"></i><span class="text-xs mt-1 font-medium">Günlük Panel</span></button>
+        <button data-view="shopping-list" class="nav-btn flex flex-col items-center justify-center w-full py-2 rounded-lg transition-colors duration-300 text-gray-400 hover:bg-gray-700/50"><i data-lucide="shopping-cart"></i><span class="text-xs mt-1 font-medium">Alışveriş Listesi</span></button>
         <button data-view="weight" class="nav-btn flex flex-col items-center justify-center w-full py-2 rounded-lg transition-colors duration-300 text-gray-400 hover:bg-gray-700/50"><i data-lucide="weight"></i><span class="text-xs mt-1 font-medium">Kilo Takibi</span></button>
     </nav>
 
@@ -177,13 +204,17 @@
         let localRecipes = [];
         let dailyLog = [];
         let weightData = [];
+        let shoppingList = [];
+        let waterData = { date: '', count: 0 };
+        let notes = '';
         let chatHistory = [];
 
         // --- DOM ELEMENTLERİ ---
         const views = {
             'recipe-categories': document.getElementById('recipe-categories-view'),
             'diet': document.getElementById('diet-view'),
-            'log': document.getElementById('log-view'),
+            'dashboard': document.getElementById('dashboard-view'),
+            'shopping-list': document.getElementById('shopping-list-view'),
             'weight': document.getElementById('weight-view')
         };
         const recipeListView = document.getElementById('recipe-list-view');
@@ -209,14 +240,18 @@
         const backToCategoriesBtn = document.getElementById('back-to-categories-btn');
         const recipeListTitle = document.getElementById('recipe-list-title');
         const refreshCategoryBtn = document.getElementById('refresh-category-btn');
+        const shoppingListItems = document.getElementById('shopping-list-items');
+        const clearShoppingListBtn = document.getElementById('clear-shopping-list-btn');
+        const waterTracker = document.getElementById('water-tracker');
+        const waterCountSpan = document.getElementById('water-count');
+        const notesArea = document.getElementById('notes-area');
+        const tipOfTheDayDiv = document.getElementById('tip-of-the-day');
 
         // --- MESAJ GÖSTERİM FONKSİYONLARI ---
         function showMessage(element, message, duration = 3000) {
             element.textContent = message;
             element.classList.remove('hidden');
-            setTimeout(() => {
-                element.classList.add('hidden');
-            }, duration);
+            setTimeout(() => { element.classList.add('hidden'); }, duration);
         }
 
         // --- GÖRÜNÜM DEĞİŞTİRME ---
@@ -235,15 +270,30 @@
         // --- VERİ YÖNETİMİ (localStorage) ---
         function loadDataFromStorage() {
             try {
-                dailyLog = JSON.parse(localStorage.getItem('gulerDetoxLog')) || [];
-                weightData = JSON.parse(localStorage.getItem('gulerDetoxWeight')) || [];
-            } catch (e) { console.error("Yerel veriler okunurken hata oluştu:", e); dailyLog = []; weightData = []; }
+                dailyLog = JSON.parse(localStorage.getItem('gulerDetoxLog_v2')) || [];
+                weightData = JSON.parse(localStorage.getItem('gulerDetoxWeight_v2')) || [];
+                shoppingList = JSON.parse(localStorage.getItem('gulerDetoxShopping_v2')) || [];
+                notes = localStorage.getItem('gulerDetoxNotes_v2') || '';
+                
+                const storedWater = JSON.parse(localStorage.getItem('gulerDetoxWater_v2'));
+                const today = new Date().toISOString().slice(0, 10);
+                if (storedWater && storedWater.date === today) {
+                    waterData = storedWater;
+                } else {
+                    waterData = { date: today, count: 0 };
+                    saveWaterToStorage();
+                }
+
+            } catch (e) { console.error("Yerel veriler okunurken hata oluştu:", e); }
         }
-        function saveLogToStorage() { localStorage.setItem('gulerDetoxLog', JSON.stringify(dailyLog)); }
-        function saveWeightToStorage() { localStorage.setItem('gulerDetoxWeight', JSON.stringify(weightData)); }
+        function saveLogToStorage() { localStorage.setItem('gulerDetoxLog_v2', JSON.stringify(dailyLog)); }
+        function saveWeightToStorage() { localStorage.setItem('gulerDetoxWeight_v2', JSON.stringify(weightData)); }
+        function saveShoppingListToStorage() { localStorage.setItem('gulerDetoxShopping_v2', JSON.stringify(shoppingList)); }
+        function saveWaterToStorage() { localStorage.setItem('gulerDetoxWater_v2', JSON.stringify(waterData)); }
+        function saveNotesToStorage() { localStorage.setItem('gulerDetoxNotes_v2', notes); }
 
         // --- RENDER FONKSİYONLARI ---
-        function renderAll() { renderLog(); renderWeightView(); }
+        function renderAll() { renderLog(); renderWeightView(); renderShoppingList(); renderWaterTracker(); renderNotes(); }
         
         function renderRecipes(recipes) {
             recipesGrid.innerHTML = '';
@@ -258,7 +308,7 @@
             recipes.forEach((recipe, index) => {
                 const card = document.createElement('div');
                 card.className = "bg-white/10 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 flex flex-col";
-                card.innerHTML = `<div class="flex-grow"><h3 class="text-2xl font-bold text-cyan-300 mb-2">${recipe.recipeName}</h3><p class="text-gray-300 mb-4 text-sm">${recipe.description||''}</p><div class="mb-4"><h4 class="font-semibold text-lg text-white mb-2">Malzemeler</h4><ul class="list-disc list-inside text-gray-300 space-y-1">${(recipe.ingredients||[]).map(ing=>`<li>${ing}</li>`).join('')}</ul></div><div><h4 class="font-semibold text-lg text-white mb-2">Hazırlanışı</h4><ol class="list-decimal list-inside text-gray-300 space-y-1">${(recipe.instructions||[]).map(step=>`<li>${step}</li>`).join('')}</ol></div></div><button data-recipe-index="${index}" class="add-log-btn mt-6 w-full bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors duration-300"><i data-lucide="plus-circle" class="w-5 h-5"></i> Bugün Bunu İçtim</button>`;
+                card.innerHTML = `<div class="flex-grow"><h3 class="text-2xl font-bold text-cyan-300 mb-2">${recipe.recipeName}</h3><p class="text-gray-300 mb-4 text-sm">${recipe.description||''}</p><div class="mb-4"><h4 class="font-semibold text-lg text-white mb-2">Malzemeler</h4><ul class="list-disc list-inside text-gray-300 space-y-1">${(recipe.ingredients||[]).map(ing=>`<li>${ing}</li>`).join('')}</ul></div><div><h4 class="font-semibold text-lg text-white mb-2">Hazırlanışı</h4><ol class="list-decimal list-inside text-gray-300 space-y-1">${(recipe.instructions||[]).map(step=>`<li>${step}</li>`).join('')}</ol></div></div><div class="flex gap-2 mt-6"><button data-recipe-index="${index}" class="add-log-btn w-full bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors duration-300"><i data-lucide="plus-circle" class="w-5 h-5"></i> İçtim</button><button data-recipe-index="${index}" class="add-to-shopping-list-btn w-full bg-amber-500 hover:bg-amber-400 text-slate-900 font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors duration-300"><i data-lucide="shopping-cart" class="w-5 h-5"></i> Listeye Ekle</button></div>`;
                 recipesGrid.appendChild(card);
             });
             lucide.createIcons();
@@ -271,13 +321,7 @@
             sortedLog.forEach(log => {
                 const logItem = document.createElement('div');
                 logItem.className = "bg-gray-800/50 p-3 rounded-lg flex justify-between items-center";
-                logItem.innerHTML = `
-                    <div>
-                        <span class="font-semibold text-gray-200">${log.recipeName}</span>
-                        <span class="block text-xs text-gray-400">${new Date(log.timestamp).toLocaleString('tr-TR')}</span>
-                    </div>
-                    <button data-id="${log.id}" class="delete-log-btn text-red-400 hover:text-red-300 p-2 rounded-full"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
-                `;
+                logItem.innerHTML = `<div><span class="font-semibold text-gray-200">${log.recipeName}</span><span class="block text-xs text-gray-400">${new Date(log.timestamp).toLocaleString('tr-TR')}</span></div><button data-id="${log.id}" class="delete-log-btn text-red-400 hover:text-red-300 p-2 rounded-full"><i data-lucide="trash-2" class="w-5 h-5"></i></button>`;
                 logList.appendChild(logItem);
             });
             lucide.createIcons();
@@ -299,13 +343,7 @@
                 [...sortedWeight].reverse().forEach(entry => {
                     const item = document.createElement('div');
                     item.className = 'bg-gray-800/50 p-3 rounded-lg flex justify-between items-center text-sm';
-                    item.innerHTML = `
-                        <div>
-                            <span class="font-semibold">${entry.weight.toFixed(1)} kg</span>
-                            <span class="block text-xs text-gray-400">${new Date(entry.timestamp).toLocaleDateString('tr-TR')}</span>
-                        </div>
-                        <button data-id="${entry.id}" class="delete-weight-btn text-red-400 hover:text-red-300 p-2 rounded-full"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
-                    `;
+                    item.innerHTML = `<div><span class="font-semibold">${entry.weight.toFixed(1)} kg</span><span class="block text-xs text-gray-400">${new Date(entry.timestamp).toLocaleDateString('tr-TR')}</span></div><button data-id="${entry.id}" class="delete-weight-btn text-red-400 hover:text-red-300 p-2 rounded-full"><i data-lucide="trash-2" class="w-5 h-5"></i></button>`;
                     weightHistoryListEl.appendChild(item);
                 });
             } else {
@@ -328,6 +366,36 @@
             });
         }
         
+        function renderShoppingList() {
+            shoppingListItems.innerHTML = '';
+            if (shoppingList.length === 0) { shoppingListItems.innerHTML = '<p class="text-gray-400">Listeniz boş.</p>'; return; }
+            shoppingList.forEach(item => {
+                const listItem = document.createElement('div');
+                listItem.className = `shopping-item bg-gray-800/50 p-3 rounded-lg flex justify-between items-center ${item.completed ? 'completed' : ''}`;
+                listItem.innerHTML = `<div class="flex items-center gap-3"><input type="checkbox" data-id="${item.id}" class="shopping-checkbox w-5 h-5 accent-cyan-400" ${item.completed ? 'checked' : ''}><span>${item.name}</span></div><button data-id="${item.id}" class="delete-shopping-item-btn text-red-400 hover:text-red-300 p-2 rounded-full"><i data-lucide="trash-2" class="w-5 h-5"></i></button>`;
+                shoppingListItems.appendChild(listItem);
+            });
+            lucide.createIcons();
+        }
+
+        function renderWaterTracker() {
+            waterTracker.innerHTML = '';
+            waterCountSpan.textContent = waterData.count;
+            for (let i = 1; i <= 8; i++) {
+                const isFull = i <= waterData.count;
+                const glass = document.createElement('button');
+                glass.dataset.index = i;
+                glass.className = `water-glass-btn p-2 rounded-lg transition-colors ${isFull ? 'bg-sky-500' : 'bg-slate-700 hover:bg-slate-600'}`;
+                glass.innerHTML = `<i data-lucide="glass-water" class="${isFull ? 'text-white' : 'text-slate-500'}"></i>`;
+                waterTracker.appendChild(glass);
+            }
+            lucide.createIcons();
+        }
+
+        function renderNotes() {
+            notesArea.value = notes;
+        }
+
         // --- API İŞLEMLERİ ---
         async function fetchFromAPI(prompt, schema) {
             errorMessageDiv.classList.add('hidden');
@@ -441,6 +509,26 @@
             table.appendChild(tbody);
             dietListContent.appendChild(table);
         }
+        
+        async function fetchTipOfTheDay() {
+            const today = new Date().toISOString().slice(0, 10);
+            const storedTip = JSON.parse(localStorage.getItem('gulerDetoxTip_v2'));
+
+            if (storedTip && storedTip.date === today) {
+                tipOfTheDayDiv.textContent = storedTip.tip;
+                tipOfTheDayDiv.classList.remove('hidden');
+                return;
+            }
+            
+            chatHistory = [];
+            const prompt = "Bana sağlık, detoks veya motivasyonla ilgili, güne başlarken okunacak ilham verici ve kısa bir ipucu ver. Cevabı sadece ipucunun kendisi olarak, tırnak işaretleri olmadan ver.";
+            const resultText = await fetchFromAPI(prompt);
+            if(resultText) {
+                tipOfTheDayDiv.textContent = resultText;
+                tipOfTheDayDiv.classList.remove('hidden');
+                localStorage.setItem('gulerDetoxTip_v2', JSON.stringify({ date: today, tip: resultText }));
+            }
+        }
 
         // --- UYGULAMA BAŞLATMA VE YÖNETİMİ ---
         function main() {
@@ -448,6 +536,7 @@
             switchView('recipe-categories');
             loadDataFromStorage();
             renderAll();
+            fetchTipOfTheDay();
 
             navButtons.forEach(btn => btn.addEventListener('click', () => {
                 const view = btn.dataset.view;
@@ -474,15 +563,35 @@
             });
 
             recipesGrid.addEventListener('click', (e) => {
-                const button = e.target.closest('.add-log-btn');
-                if (!button) return;
-                const recipeIndex = button.dataset.recipeIndex;
-                const recipe = localRecipes[recipeIndex];
-                if (recipe) {
-                    dailyLog.push({ id: new Date().toISOString(), recipeName: recipe.recipeName, timestamp: new Date().toISOString() });
-                    saveLogToStorage();
-                    renderLog();
-                    showMessage(successMessageDiv, `'${recipe.recipeName}' günlüğe eklendi!`);
+                const addLogBtn = e.target.closest('.add-log-btn');
+                const addShoppingBtn = e.target.closest('.add-to-shopping-list-btn');
+
+                if (addLogBtn) {
+                    const recipeIndex = addLogBtn.dataset.recipeIndex;
+                    const recipe = localRecipes[recipeIndex];
+                    if (recipe) {
+                        dailyLog.push({ id: new Date().toISOString(), recipeName: recipe.recipeName, timestamp: new Date().toISOString() });
+                        saveLogToStorage();
+                        renderLog();
+                        showMessage(successMessageDiv, `'${recipe.recipeName}' günlüğe eklendi!`);
+                    }
+                }
+
+                if (addShoppingBtn) {
+                    const recipeIndex = addShoppingBtn.dataset.recipeIndex;
+                    const recipe = localRecipes[recipeIndex];
+                    if (recipe && recipe.ingredients) {
+                        let addedCount = 0;
+                        recipe.ingredients.forEach(ingredient => {
+                            if (!shoppingList.some(item => item.name.toLowerCase() === ingredient.toLowerCase())) {
+                                shoppingList.push({ id: new Date().toISOString() + ingredient, name: ingredient, completed: false });
+                                addedCount++;
+                            }
+                        });
+                        saveShoppingListToStorage();
+                        renderShoppingList();
+                        showMessage(successMessageDiv, `${addedCount} malzeme alışveriş listesine eklendi!`);
+                    }
                 }
             });
             
@@ -502,6 +611,46 @@
                 weightData = weightData.filter(entry => entry.id !== idToDelete);
                 saveWeightToStorage();
                 renderWeightView();
+            });
+            
+            shoppingListItems.addEventListener('click', (e) => {
+                const deleteBtn = e.target.closest('.delete-shopping-item-btn');
+                const checkbox = e.target.closest('.shopping-checkbox');
+                if (deleteBtn) {
+                    const idToDelete = deleteBtn.dataset.id;
+                    shoppingList = shoppingList.filter(item => item.id !== idToDelete);
+                }
+                if (checkbox) {
+                    const idToToggle = checkbox.dataset.id;
+                    const item = shoppingList.find(item => item.id === idToToggle);
+                    if(item) item.completed = !item.completed;
+                }
+                saveShoppingListToStorage();
+                renderShoppingList();
+            });
+
+            clearShoppingListBtn.addEventListener('click', () => {
+                shoppingList = [];
+                saveShoppingListToStorage();
+                renderShoppingList();
+            });
+
+            waterTracker.addEventListener('click', (e) => {
+                const glassBtn = e.target.closest('.water-glass-btn');
+                if(!glassBtn) return;
+                const index = parseInt(glassBtn.dataset.index);
+                if (waterData.count === index) {
+                    waterData.count--;
+                } else {
+                    waterData.count = index;
+                }
+                saveWaterToStorage();
+                renderWaterTracker();
+            });
+
+            notesArea.addEventListener('input', (e) => {
+                notes = e.target.value;
+                saveNotesToStorage();
             });
 
             shareDietBtn.addEventListener('click', async () => {
