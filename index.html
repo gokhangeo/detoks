@@ -152,22 +152,15 @@
         </button>
     </nav>
 
-    <!-- Firebase ve Uygulama Mantığı -->
+    <!-- Uygulama Mantığı -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
         // --- DEĞİŞKENLER VE SABİTLER ---
-        const firebaseConfig = typeof __firebase_config !== 'undefined' 
-            ? JSON.parse(__firebase_config) 
-            : { apiKey: "YOUR_API_KEY", authDomain: "YOUR_AUTH_DOMAIN", projectId: "YOUR_PROJECT_ID" };
-
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-detox-app';
         const GEMINI_API_KEY = "AIzaSyBPpW33vp0fo5rf9vEiJ4ii3dHC-WXxX50";
 
         let weightChart;
         let localRecipes = [];
+        let dailyLog = [];
+        let weightData = [];
 
         // --- DOM ELEMENTLERİ ---
         const views = {
@@ -210,7 +203,32 @@
             });
         }
 
+        // --- VERİ YÖNETİMİ (localStorage) ---
+        function loadDataFromStorage() {
+            try {
+                dailyLog = JSON.parse(localStorage.getItem('gulerDetoxLog')) || [];
+                weightData = JSON.parse(localStorage.getItem('gulerDetoxWeight')) || [];
+            } catch (e) {
+                console.error("Yerel veriler okunurken hata oluştu:", e);
+                dailyLog = [];
+                weightData = [];
+            }
+        }
+
+        function saveLogToStorage() {
+            localStorage.setItem('gulerDetoxLog', JSON.stringify(dailyLog));
+        }
+
+        function saveWeightToStorage() {
+            localStorage.setItem('gulerDetoxWeight', JSON.stringify(weightData));
+        }
+
         // --- RENDER FONKSİYONLARI ---
+        function renderAll() {
+            renderLog();
+            renderWeightView();
+        }
+        
         function renderRecipes(recipes) {
             recipesGrid.innerHTML = '';
             if (!Array.isArray(recipes) || recipes.length === 0) {
@@ -248,27 +266,29 @@
             lucide.createIcons();
         }
 
-        function renderLog(dailyLog) {
+        function renderLog() {
             logList.innerHTML = '';
-            if (dailyLog.length === 0) {
+            const sortedLog = [...dailyLog].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            if (sortedLog.length === 0) {
                 logList.innerHTML = '<p class="text-gray-400">Henüz bir şey içmediniz.</p>';
                 return;
             }
-            dailyLog.forEach(log => {
+            sortedLog.forEach(log => {
                 const logItem = document.createElement('div');
                 logItem.className = "bg-gray-800/50 p-3 rounded-lg flex justify-between items-center";
                 logItem.innerHTML = `
                     <span class="font-semibold text-gray-200">${log.recipeName}</span>
-                    <span class="text-xs text-gray-400">${new Date(log.timestamp.toDate()).toLocaleString('tr-TR')}</span>
+                    <span class="text-xs text-gray-400">${new Date(log.timestamp).toLocaleString('tr-TR')}</span>
                 `;
                 logList.appendChild(logItem);
             });
         }
 
-        function renderWeightView(weightData) {
-            if (weightData.length > 0) {
-                const startWeight = weightData[0].weight;
-                const currentWeight = weightData[weightData.length - 1].weight;
+        function renderWeightView() {
+            const sortedWeight = [...weightData].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            if (sortedWeight.length > 0) {
+                const startWeight = sortedWeight[0].weight;
+                const currentWeight = sortedWeight[sortedWeight.length - 1].weight;
                 const change = currentWeight - startWeight;
 
                 startWeightEl.textContent = `${startWeight.toFixed(1)} kg`;
@@ -280,11 +300,11 @@
                 else if (change > 0) totalChangeEl.classList.add('text-red-400');
                 
                 weightHistoryListEl.innerHTML = '';
-                [...weightData].reverse().forEach(entry => {
+                [...sortedWeight].reverse().forEach(entry => {
                     const item = document.createElement('div');
                     item.className = 'bg-gray-800/50 p-3 rounded-lg flex justify-between items-center text-sm';
                     item.innerHTML = `
-                        <span class="text-gray-300">${new Date(entry.timestamp.toDate()).toLocaleDateString('tr-TR')}</span>
+                        <span class="text-gray-300">${new Date(entry.timestamp).toLocaleDateString('tr-TR')}</span>
                         <span class="font-semibold">${entry.weight.toFixed(1)} kg</span>
                     `;
                     weightHistoryListEl.appendChild(item);
@@ -295,12 +315,12 @@
                 totalChangeEl.textContent = `- kg`;
                 weightHistoryListEl.innerHTML = '<p class="text-gray-400 text-sm">Henüz kilo kaydı girmediniz.</p>';
             }
-            renderWeightChart(weightData);
+            renderWeightChart(sortedWeight);
         }
 
         function renderWeightChart(data) {
             const ctx = document.getElementById('weight-chart').getContext('2d');
-            const labels = data.map(w => new Date(w.timestamp.toDate()).toLocaleDateString('tr-TR'));
+            const labels = data.map(w => new Date(w.timestamp).toLocaleDateString('tr-TR'));
             const weights = data.map(w => w.weight);
 
             if (weightChart) weightChart.destroy();
@@ -347,7 +367,7 @@
             ];
         }
 
-        // --- API & VERİTABANI İŞLEMLERİ ---
+        // --- API İŞLEMLERİ ---
         async function fetchRecipesFromAPI() {
             fetchRecipesBtn.disabled = true;
             fetchBtnText.textContent = 'Yükleniyor...';
@@ -409,91 +429,35 @@
         }
 
         // --- UYGULAMA BAŞLATMA VE YÖNETİMİ ---
-        async function main() {
+        function main() {
             lucide.createIcons();
             switchView('recipes');
+            loadDataFromStorage();
+            renderAll();
+            fetchRecipesFromAPI();
 
-            try {
-                const app = initializeApp(firebaseConfig);
-                const db = getFirestore(app);
-                const auth = getAuth(app);
-
-                const user = await new Promise((resolve, reject) => {
-                    const unsubscribe = onAuthStateChanged(auth, (user) => {
-                        unsubscribe(); 
-                        if (user) {
-                            resolve(user);
-                        } else {
-                            signInAnonymously(auth).then(cred => resolve(cred.user)).catch(reject);
-                        }
-                    });
-                });
-                
-                const userId = user.uid;
-                const currentAppId = firebaseConfig.appId || appId;
-
-                // Dinleyicileri ve olayları ayarla
-                startDataListeners(db, userId, currentAppId);
-                setupEventListeners(db, userId, currentAppId);
-                
-                // İlk tarifleri yükle
-                await fetchRecipesFromAPI();
-
-            } catch (e) {
-                console.error("Uygulama başlatma hatası:", e);
-                showError("Uygulama başlatılamadı. Lütfen sayfayı yenileyin.");
-            }
-        }
-
-        function startDataListeners(db, userId, currentAppId) {
-            const logCollectionPath = `artifacts/${currentAppId}/users/${userId}/dailyLogs`;
-            const logQuery = query(collection(db, logCollectionPath));
-            onSnapshot(logQuery, snapshot => {
-                const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                logs.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
-                renderLog(logs);
-            }, err => {
-                console.error("Günlük verisi dinleme hatası:", err);
-                showError("Günlük verileri alınamadı.");
-            });
-
-            const weightCollectionPath = `artifacts/${currentAppId}/users/${userId}/weightEntries`;
-            const weightQuery = query(collection(db, weightCollectionPath));
-            onSnapshot(weightQuery, snapshot => {
-                const weights = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                weights.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
-                renderWeightView(weights);
-            }, err => {
-                console.error("Kilo verisi dinleme hatası:", err);
-                showError("Kilo verileri alınamadı.");
-            });
-        }
-
-        function setupEventListeners(db, userId, currentAppId) {
             navButtons.forEach(btn => {
                 btn.addEventListener('click', () => switchView(btn.dataset.view));
             });
             
             fetchRecipesBtn.addEventListener('click', fetchRecipesFromAPI);
 
-            weightForm.addEventListener('submit', async (e) => {
+            weightForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const weightValue = newWeightInput.value;
-                if (!db || !userId || !weightValue || isNaN(parseFloat(weightValue))) return;
-                try {
-                    const weightCollectionPath = `artifacts/${currentAppId}/users/${userId}/weightEntries`;
-                    await addDoc(collection(db, weightCollectionPath), {
-                        weight: parseFloat(weightValue),
-                        timestamp: new Date()
-                    });
-                    newWeightInput.value = '';
-                } catch (err) {
-                    console.error("Kilo kaydı ekleme hatası: ", err);
-                    showError("Kilo kaydı eklenemedi.");
-                }
+                if (!weightValue || isNaN(parseFloat(weightValue))) return;
+                
+                weightData.push({
+                    weight: parseFloat(weightValue),
+                    timestamp: new Date().toISOString()
+                });
+                
+                saveWeightToStorage();
+                renderWeightView();
+                newWeightInput.value = '';
             });
 
-            recipesGrid.addEventListener('click', async (e) => {
+            recipesGrid.addEventListener('click', (e) => {
                 const button = e.target.closest('.add-log-btn');
                 if (!button) return;
                 
@@ -501,25 +465,22 @@
                 const recipe = localRecipes[recipeIndex];
 
                 if (recipe) {
-                    try {
-                        const logCollectionPath = `artifacts/${currentAppId}/users/${userId}/dailyLogs`;
-                        await addDoc(collection(db, logCollectionPath), {
-                            recipeName: recipe.recipeName,
-                            timestamp: new Date()
-                        });
-                        button.textContent = 'Eklendi!';
-                        button.classList.remove('bg-cyan-500', 'hover:bg-cyan-400');
-                        button.classList.add('bg-green-500');
-                        setTimeout(() => {
-                            button.innerHTML = `<i data-lucide="plus-circle" class="w-5 h-5"></i> Bugün Bunu İçtim`;
-                            button.classList.remove('bg-green-500');
-                            button.classList.add('bg-cyan-500', 'hover:bg-cyan-400');
-                            lucide.createIcons();
-                        }, 2000);
-                    } catch (err) {
-                         console.error("Günlük kaydı ekleme hatası: ", err);
-                         showError("Günlüğe ekleme yapılamadı.");
-                    }
+                    dailyLog.push({
+                        recipeName: recipe.recipeName,
+                        timestamp: new Date().toISOString()
+                    });
+                    saveLogToStorage();
+                    renderLog();
+
+                    button.textContent = 'Eklendi!';
+                    button.classList.remove('bg-cyan-500', 'hover:bg-cyan-400');
+                    button.classList.add('bg-green-500');
+                    setTimeout(() => {
+                        button.innerHTML = `<i data-lucide="plus-circle" class="w-5 h-5"></i> Bugün Bunu İçtim`;
+                        button.classList.remove('bg-green-500');
+                        button.classList.add('bg-cyan-500', 'hover:bg-cyan-400');
+                        lucide.createIcons();
+                    }, 2000);
                 }
             });
         }
