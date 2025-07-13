@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Güler Detoks Asistanı</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js for Graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        /* Temel Stil Ayarları */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* bg-slate-900 */
+            color: #f8fafc; /* text-slate-50 */
+        }
+        /* Özel Kaydırma Çubuğu Stilleri */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b; /* bg-slate-800 */
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #06b6d4; /* bg-cyan-500 */
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #0891b2; /* bg-cyan-600 */
+        }
+        /* Yükleme animasyonu için */
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 pb-24">
+
+    <!-- Ana Uygulama Konteyneri -->
+    <div id="app-container">
+        <!-- Başlık Bölümü -->
+        <header class="text-center mb-6">
+            <div class="flex items-center justify-center gap-3">
+                <i data-lucide="dna" class="text-cyan-400 w-8 h-8"></i>
+                <h1 class="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-teal-300">
+                    Güler Detoks Asistanı
+                </h1>
+            </div>
+            <p class="text-gray-400 mt-2">Sağlıklı yaşama modern bir dokunuş</p>
+            <!-- Hata Mesajı Alanı -->
+            <div id="error-message" class="hidden mt-4 bg-red-500/20 border border-red-500 text-red-300 p-3 rounded-lg"></div>
+        </header>
+
+        <!-- Ana İçerik Alanı -->
+        <main>
+            <!-- Tarifler Görünümü -->
+            <div id="recipes-view">
+                <button id="fetch-recipes-btn" class="w-full mb-6 bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed">
+                    <i data-lucide="refresh-cw" class="w-5 h-5 loader-icon"></i>
+                    <span id="fetch-btn-text">Yeni Tarifler Getir</span>
+                </button>
+                <div id="recipes-loader" class="text-center text-gray-400">
+                    <p>Yapay zeka şefimiz tarifleri hazırlıyor...</p>
+                </div>
+                <div id="recipes-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Tarif kartları buraya dinamik olarak eklenecek -->
+                </div>
+            </div>
+
+            <!-- Günlük Görünümü (Başlangıçta Gizli) -->
+            <div id="log-view" class="hidden bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10">
+                <h2 class="text-2xl font-bold text-cyan-300 mb-4">Tüketim Günlüğüm</h2>
+                <div id="log-list" class="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+                    <!-- Günlük kayıtları buraya dinamik olarak eklenecek -->
+                </div>
+            </div>
+
+            <!-- Kilo Takibi Görünümü (Başlangıçta Gizli) -->
+            <div id="weight-view" class="hidden bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10 space-y-6">
+                <h2 class="text-2xl font-bold text-cyan-300">Kilo Gelişim Panosu</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                    <div class="bg-slate-800/50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-400">Başlangıç</p>
+                        <p id="start-weight" class="text-2xl font-bold text-white">- kg</p>
+                    </div>
+                    <div class="bg-slate-800/50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-400">Mevcut</p>
+                        <p id="current-weight" class="text-2xl font-bold text-white">- kg</p>
+                    </div>
+                    <div class="bg-slate-800/50 p-4 rounded-lg">
+                        <p class="text-sm text-gray-400">Toplam Değişim</p>
+                        <p id="total-change" class="text-2xl font-bold text-white">- kg</p>
+                    </div>
+                </div>
+
+                <div class="h-64">
+                    <canvas id="weight-chart"></canvas>
+                </div>
+
+                <form id="weight-form" class="flex gap-2">
+                    <input
+                        id="new-weight-input"
+                        type="number"
+                        step="0.1"
+                        placeholder="Örn: 75.5"
+                        class="w-full bg-gray-700 text-white placeholder-gray-400 rounded-lg p-3 border-2 border-transparent focus:outline-none focus:border-teal-400 transition-colors"
+                        required
+                    />
+                    <button type="submit" class="bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold py-3 px-4 rounded-lg transition-colors">Ekle</button>
+                </form>
+
+                <div>
+                    <h3 class="text-xl font-bold text-cyan-300 mb-3">Kayıt Geçmişi</h3>
+                    <div id="weight-history-list" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-2">
+                        <!-- Kilo geçmişi buraya dinamik olarak eklenecek -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Alt Navigasyon Çubuğu -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-gray-900/80 backdrop-blur-sm border-t border-cyan-500/30 p-2 flex justify-around">
+        <button data-view="recipes" class="nav-btn flex flex-col items-center justify-center w-full py-2 rounded-lg transition-colors duration-300 text-cyan-400 bg-cyan-500/10">
+            <i data-lucide="book-open"></i>
+            <span class="text-xs mt-1 font-medium">Tarifler</span>
+        </button>
+        <button data-view="log" class="nav-btn flex flex-col items-center justify-center w-full py-2 rounded-lg transition-colors duration-300 text-gray-400 hover:bg-gray-700/50">
+            <i data-lucide="glass-water"></i>
+            <span class="text-xs mt-1 font-medium">Günlüğüm</span>
+        </button>
+        <button data-view="weight" class="nav-btn flex flex-col items-center justify-center w-full py-2 rounded-lg transition-colors duration-300 text-gray-400 hover:bg-gray-700/50">
+            <i data-lucide="weight"></i>
+            <span class="text-xs mt-1 font-medium">Kilo Takibi</span>
+        </button>
+    </nav>
+
+    <!-- Firebase ve Uygulama Mantığı -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- DEĞİŞKENLER VE SABİTLER ---
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : { apiKey: "YOUR_API_KEY", authDomain: "YOUR_AUTH_DOMAIN", projectId: "YOUR_PROJECT_ID" };
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-detox-app';
+        const GEMINI_API_KEY = "AIzaSyCxG-n6HpUKNB1_OWlurIxApRhRfgFMHfc";
+
+        let db, auth, userId, weightChart;
+        let recipes = [];
+        let dailyLog = [];
+        let weightData = [];
+
+        // --- DOM ELEMENTLERİ ---
+        const views = {
+            recipes: document.getElementById('recipes-view'),
+            log: document.getElementById('log-view'),
+            weight: document.getElementById('weight-view')
+        };
+        const recipesGrid = document.getElementById('recipes-grid');
+        const recipesLoader = document.getElementById('recipes-loader');
+        const fetchRecipesBtn = document.getElementById('fetch-recipes-btn');
+        const fetchBtnText = document.getElementById('fetch-btn-text');
+        const logList = document.getElementById('log-list');
+        const weightForm = document.getElementById('weight-form');
+        const newWeightInput = document.getElementById('new-weight-input');
+        const navButtons = document.querySelectorAll('.nav-btn');
+        const errorMessageDiv = document.getElementById('error-message');
+        const startWeightEl = document.getElementById('start-weight');
+        const currentWeightEl = document.getElementById('current-weight');
+        const totalChangeEl = document.getElementById('total-change');
+        const weightHistoryListEl = document.getElementById('weight-history-list');
+
+        // --- HATA GÖSTERİM FONKSİYONU ---
+        function showError(message) {
+            errorMessageDiv.textContent = message;
+            errorMessageDiv.classList.remove('hidden');
+        }
+
+        // --- GÖRÜNÜM DEĞİŞTİRME ---
+        function switchView(viewName) {
+            Object.values(views).forEach(view => view.classList.add('hidden'));
+            if (views[viewName]) {
+                views[viewName].classList.remove('hidden');
+            }
+
+            navButtons.forEach(btn => {
+                const isSelected = btn.dataset.view === viewName;
+                btn.classList.toggle('text-cyan-400', isSelected);
+                btn.classList.toggle('bg-cyan-500/10', isSelected);
+                btn.classList.toggle('text-gray-400', !isSelected);
+                btn.classList.toggle('hover:bg-gray-700/50', !isSelected);
+            });
+        }
+
+        // --- RENDER FONKSİYONLARI ---
+        function renderRecipes() {
+            recipesGrid.innerHTML = '';
+            if (!Array.isArray(recipes) || recipes.length === 0) {
+                recipesLoader.classList.remove('hidden');
+                return;
+            }
+            recipesLoader.classList.add('hidden');
+            
+            recipes.forEach((recipe, index) => {
+                const card = document.createElement('div');
+                card.className = "bg-white/10 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 transform hover:scale-105 transition-transform duration-300";
+                card.innerHTML = `
+                    <h3 class="text-2xl font-bold text-cyan-300 mb-2">${recipe.recipeName}</h3>
+                    <p class="text-gray-300 mb-4 text-sm">${recipe.description || ''}</p>
+                    <div class="mb-4">
+                        <h4 class="font-semibold text-lg text-white mb-2">Malzemeler</h4>
+                        <ul class="list-disc list-inside text-gray-300 space-y-1">
+                            ${(recipe.ingredients || []).map(ing => `<li>${ing}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-lg text-white mb-2">Hazırlanışı</h4>
+                        <ol class="list-decimal list-inside text-gray-300 space-y-1">
+                            ${(recipe.instructions || []).map(step => `<li>${step}</li>`).join('')}
+                        </ol>
+                    </div>
+                    <button data-recipe-index="${index}" class="add-log-btn mt-6 w-full bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors duration-300">
+                        <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                        Bugün Bunu İçtim
+                    </button>
+                `;
+                recipesGrid.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        function renderLog() {
+            logList.innerHTML = '';
+            if (dailyLog.length === 0) {
+                logList.innerHTML = '<p class="text-gray-400">Henüz bir şey içmediniz.</p>';
+                return;
+            }
+            dailyLog.forEach(log => {
+                const logItem = document.createElement('div');
+                logItem.className = "bg-gray-800/50 p-3 rounded-lg flex justify-between items-center";
+                logItem.innerHTML = `
+                    <span class="font-semibold text-gray-200">${log.recipeName}</span>
+                    <span class="text-xs text-gray-400">${new Date(log.timestamp.toDate()).toLocaleString('tr-TR')}</span>
+                `;
+                logList.appendChild(logItem);
+            });
+        }
+
+        function updateWeightView() {
+            if (weightData.length > 0) {
+                const startWeight = weightData[0].weight;
+                const currentWeight = weightData[weightData.length - 1].weight;
+                const change = currentWeight - startWeight;
+
+                startWeightEl.textContent = `${startWeight.toFixed(1)} kg`;
+                currentWeightEl.textContent = `${currentWeight.toFixed(1)} kg`;
+                
+                totalChangeEl.textContent = `${change.toFixed(1)} kg`;
+                totalChangeEl.classList.remove('text-green-400', 'text-red-400');
+                if (change < 0) {
+                    totalChangeEl.classList.add('text-green-400');
+                } else if (change > 0) {
+                    totalChangeEl.classList.add('text-red-400');
+                }
+                
+                weightHistoryListEl.innerHTML = '';
+                [...weightData].reverse().forEach(entry => {
+                    const item = document.createElement('div');
+                    item.className = 'bg-gray-800/50 p-3 rounded-lg flex justify-between items-center text-sm';
+                    item.innerHTML = `
+                        <span class="text-gray-300">${new Date(entry.timestamp.toDate()).toLocaleDateString('tr-TR')}</span>
+                        <span class="font-semibold">${entry.weight.toFixed(1)} kg</span>
+                    `;
+                    weightHistoryListEl.appendChild(item);
+                });
+
+            } else {
+                startWeightEl.textContent = `- kg`;
+                currentWeightEl.textContent = `- kg`;
+                totalChangeEl.textContent = `- kg`;
+                weightHistoryListEl.innerHTML = '<p class="text-gray-400 text-sm">Henüz kilo kaydı girmediniz.</p>';
+            }
+            renderWeightChart();
+        }
+
+        function renderWeightChart() {
+            const ctx = document.getElementById('weight-chart').getContext('2d');
+            const labels = weightData.map(w => new Date(w.timestamp.toDate()).toLocaleDateString('tr-TR'));
+            const data = weightData.map(w => w.weight);
+
+            if (weightChart) {
+                weightChart.destroy();
+            }
+
+            weightChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Kilo (kg)',
+                        data: data,
+                        borderColor: '#2DD4BF',
+                        backgroundColor: 'rgba(45, 212, 191, 0.1)',
+                        fill: true,
+                        tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: false, ticks: { color: '#9CA3AF' }, grid: { color: '#4A5568' } },
+                        x: { ticks: { color: '#9CA3AF' }, grid: { color: 'rgba(0,0,0,0)' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        // --- API & VERİTABANI İŞLEMLERİ ---
+        async function fetchRecipesFromAPI() {
+            fetchRecipesBtn.disabled = true;
+            fetchBtnText.textContent = 'Yükleniyor...';
+            const loaderIcon = fetchRecipesBtn.querySelector('.loader-icon');
+            if(loaderIcon) loaderIcon.classList.add('animate-spin');
+            recipesLoader.classList.remove('hidden');
+            recipesLoader.textContent = 'Yapay zeka şefimiz tarifleri hazırlıyor...';
+            errorMessageDiv.classList.add('hidden');
+            
+            const prompt = "Bana kilo vermeye odaklı 5 adet detoks tarifi ver. Bu tariflerden bir tanesi, özellikle lipödem hastaları için uygun, iltihap azaltıcı ve ödem atıcı özelliklere sahip bir 'detoks çorbası' olsun. Diğer dördü ise sıvı detoks içeceği olabilir. Tüm tarifler JSON formatında, 'recipeName' (string), 'description' (string), 'ingredients' (array of strings), ve 'instructions' (array of strings) alanlarını içermelidir.";
+            
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                recipeName: { type: "STRING" },
+                                description: { type: "STRING" },
+                                ingredients: { type: "ARRAY", items: { type: "STRING" } },
+                                instructions: { type: "ARRAY", items: { type: "STRING" } }
+                            },
+                            required: ["recipeName", "description", "ingredients", "instructions"]
+                        }
+                    }
+                }
+            };
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    const errorDetails = result.error?.message || `API Hatası: ${response.status}.`;
+                    throw new Error(errorDetails);
+                }
+
+                if (!result.candidates || result.candidates.length === 0) {
+                    throw new Error("API'den geçerli bir tarif yanıtı alınamadı.");
+                }
+                
+                let text = result.candidates[0].content.parts[0].text;
+                
+                let parsedData;
+                try {
+                    parsedData = JSON.parse(text);
+                } catch (parseError) {
+                    throw new Error("API'den gelen veri JSON formatında değil.");
+                }
+
+                if (Array.isArray(parsedData)) {
+                    recipes = parsedData;
+                } else if (parsedData && Array.isArray(parsedData.recipes)) {
+                    recipes = parsedData.recipes;
+                } else {
+                    console.error("API'den beklenen dizi veya {recipes: [...]} formatı gelmedi:", parsedData);
+                    recipes = []; 
+                    throw new Error("API'den tarif formatı anlaşılamadı.");
+                }
+                
+                renderRecipes();
+
+            } catch (e) {
+                console.error("Gemini API hatası:", e);
+                showError(`Tarifler yüklenemedi: ${e.message}`);
+                recipes = [];
+                recipesLoader.textContent = 'Tarifler yüklenirken bir hata oluştu. Lütfen tekrar deneyin.';
+                renderRecipes();
+            } finally {
+                fetchRecipesBtn.disabled = false;
+                fetchBtnText.textContent = 'Yeni Tarifler Getir';
+                if(loaderIcon) loaderIcon.classList.remove('animate-spin');
+            }
+        }
+
+        async function handleAddLog(recipe) {
+            if (!db || !userId) return;
+            try {
+                const logCollectionPath = `artifacts/${appId}/users/${userId}/dailyLogs`;
+                await addDoc(collection(db, logCollectionPath), {
+                    recipeName: recipe.recipeName,
+                    timestamp: new Date()
+                });
+            } catch (e) {
+                console.error("Günlük kaydı ekleme hatası: ", e);
+                showError("Günlüğe ekleme yapılamadı.");
+            }
+        }
+
+        async function handleAddWeight(e) {
+            e.preventDefault();
+            const weightValue = newWeightInput.value;
+            if (!db || !userId || !weightValue || isNaN(parseFloat(weightValue))) return;
+            try {
+                const weightCollectionPath = `artifacts/${appId}/users/${userId}/weightEntries`;
+                await addDoc(collection(db, weightCollectionPath), {
+                    weight: parseFloat(weightValue),
+                    timestamp: new Date()
+                });
+                newWeightInput.value = '';
+            } catch (e) {
+                console.error("Kilo kaydı ekleme hatası: ", e);
+                showError("Kilo kaydı eklenemedi.");
+            }
+        }
+
+        // --- OLAY DİNLEYİCİLERİ (EVENT LISTENERS) ---
+        function setupEventListeners() {
+            navButtons.forEach(btn => {
+                btn.addEventListener('click', () => switchView(btn.dataset.view));
+            });
+            fetchRecipesBtn.addEventListener('click', fetchRecipesFromAPI);
+            weightForm.addEventListener('submit', handleAddWeight);
+            recipesGrid.addEventListener('click', (e) => {
+                const button = e.target.closest('.add-log-btn');
+                if (button) {
+                    const recipeIndex = button.dataset.recipeIndex;
+                    if (recipes[recipeIndex]) {
+                        handleAddLog(recipes[recipeIndex]);
+                        button.textContent = 'Eklendi!';
+                        button.classList.remove('bg-cyan-500', 'hover:bg-cyan-400');
+                        button.classList.add('bg-green-500');
+                        setTimeout(() => {
+                            button.innerHTML = `<i data-lucide="plus-circle" class="w-5 h-5"></i> Bugün Bunu İçtim`;
+                            button.classList.remove('bg-green-500');
+                            button.classList.add('bg-cyan-500', 'hover:bg-cyan-400');
+                            lucide.createIcons();
+                        }, 2000);
+                    }
+                }
+            });
+        }
+
+        // --- UYGULAMA BAŞLATMA ---
+        function initialize() {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                onAuthStateChanged(auth, user => {
+                    if (user) {
+                        userId = user.uid;
+                        startDataListeners();
+                        fetchRecipesFromAPI();
+                    } else {
+                        signInAnonymously(auth).catch(err => {
+                            console.error("Anonim oturum açma hatası:", err);
+                            showError("Oturum açılamadı. Lütfen sayfayı yenileyin.");
+                        });
+                    }
+                });
+            } catch (e) {
+                console.error("Firebase başlatma hatası:", e);
+                showError("Uygulama başlatılamadı. Lütfen daha sonra tekrar deneyin.");
+            }
+            
+            setupEventListeners();
+            lucide.createIcons();
+            switchView('recipes');
+        }
+
+        function startDataListeners() {
+            if (!db || !userId) return;
+            const logCollectionPath = `artifacts/${appId}/users/${userId}/dailyLogs`;
+            const logQuery = query(collection(db, logCollectionPath));
+            onSnapshot(logQuery, snapshot => {
+                dailyLog = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                dailyLog.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
+                renderLog();
+            });
+            const weightCollectionPath = `artifacts/${appId}/users/${userId}/weightEntries`;
+            const weightQuery = query(collection(db, weightCollectionPath));
+            onSnapshot(weightQuery, snapshot => {
+                weightData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                weightData.sort((a, b) => a.timestamp.toMillis() - b.timestamp.toMillis());
+                updateWeightView();
+            });
+        }
+
+        // Uygulamayı başlat
+        initialize();
+
+    </script>
+</body>
+</html>
