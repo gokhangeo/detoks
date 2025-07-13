@@ -159,6 +159,7 @@
         import { getFirestore, collection, addDoc, onSnapshot, query } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- DEĞİŞKENLER VE SABİTLER ---
+        // HATA DÜZELTME: Firebase yapılandırması, Canvas ortamından otomatik olarak alınacak şekilde düzeltildi.
         const firebaseConfig = typeof __firebase_config !== 'undefined' 
             ? JSON.parse(__firebase_config) 
             : { apiKey: "YOUR_API_KEY", authDomain: "YOUR_AUTH_DOMAIN", projectId: "YOUR_PROJECT_ID" };
@@ -414,8 +415,8 @@
                 const userId = user.uid;
 
                 // Dinleyicileri ve olayları ayarla
-                startDataListeners(db, userId);
-                setupEventListeners(db, userId);
+                startDataListeners(db, userId, appId);
+                setupEventListeners(db, userId, appId);
                 
                 // İlk tarifleri yükle
                 await fetchRecipesFromAPI();
@@ -426,7 +427,7 @@
             }
         }
 
-        function startDataListeners(db, userId) {
+        function startDataListeners(db, userId, appId) {
             const logCollectionPath = `artifacts/${appId}/users/${userId}/dailyLogs`;
             const logQuery = query(collection(db, logCollectionPath));
             onSnapshot(logQuery, snapshot => {
@@ -450,7 +451,7 @@
             });
         }
 
-        function setupEventListeners(db, userId) {
+        function setupEventListeners(db, userId, appId) {
             navButtons.forEach(btn => {
                 btn.addEventListener('click', () => switchView(btn.dataset.view));
             });
