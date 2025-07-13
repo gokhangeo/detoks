@@ -61,6 +61,14 @@
             text-decoration: line-through;
             color: #64748b; /* text-slate-500 */
         }
+        .shopping-group-title {
+            font-weight: bold;
+            color: #94a3b8; /* text-slate-400 */
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.25rem;
+            border-bottom: 1px solid #334155;
+        }
     </style>
 </head>
 <body class="min-h-screen p-4 pb-24">
@@ -77,7 +85,10 @@
             </div>
             <p class="text-gray-400 mt-2">Sağlıklı yaşama modern bir dokunuş</p>
             <!-- Günün İpucu Alanı -->
-            <div id="tip-of-the-day" class="mt-4 text-sm text-amber-300 bg-amber-500/10 p-3 rounded-lg border border-amber-500/30 hidden"></div>
+            <div id="tip-of-the-day" class="mt-4 text-sm text-amber-300 bg-amber-500/10 p-3 rounded-lg border border-amber-500/30 hidden items-center gap-3">
+                <i data-lucide="lightbulb" class="w-5 h-5 flex-shrink-0"></i>
+                <span id="tip-text"></span>
+            </div>
             <!-- Mesaj Alanları -->
             <div id="error-message" class="hidden mt-4 bg-red-500/20 border border-red-500 text-red-300 p-3 rounded-lg"></div>
             <div id="success-message" class="hidden mt-4 bg-green-500/20 border border-green-500 text-green-300 p-3 rounded-lg"></div>
@@ -148,16 +159,16 @@
 
             <!-- Günlük Panel Görünümü -->
             <div id="dashboard-view" class="hidden space-y-6">
-                <!-- Tüketim Günlüğü -->
-                <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10">
-                    <h2 class="text-2xl font-bold text-cyan-300 mb-4">Tüketim Günlüğüm</h2>
-                    <div id="log-list" class="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar"><p class="text-gray-400">Henüz bir şey içmediniz.</p></div>
-                </div>
                 <!-- Su Takibi -->
                 <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10">
                     <h2 class="text-2xl font-bold text-cyan-300 mb-4">Günlük Su Tüketimi</h2>
                     <p class="text-sm text-gray-400 mb-4">Hedef: 8 Bardak (<span id="water-count">0</span>/8)</p>
                     <div id="water-tracker" class="grid grid-cols-8 gap-2"></div>
+                </div>
+                 <!-- Tüketim Günlüğü -->
+                <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10">
+                    <h2 class="text-2xl font-bold text-cyan-300 mb-4">Tüketim Günlüğüm</h2>
+                    <div id="log-list" class="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar"><p class="text-gray-400">Henüz bir şey içmediniz.</p></div>
                 </div>
                 <!-- Not Defteri -->
                 <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10">
@@ -246,6 +257,7 @@
         const waterCountSpan = document.getElementById('water-count');
         const notesArea = document.getElementById('notes-area');
         const tipOfTheDayDiv = document.getElementById('tip-of-the-day');
+        const tipTextSpan = document.getElementById('tip-text');
 
         // --- MESAJ GÖSTERİM FONKSİYONLARI ---
         function showMessage(element, message, duration = 3000) {
@@ -270,12 +282,12 @@
         // --- VERİ YÖNETİMİ (localStorage) ---
         function loadDataFromStorage() {
             try {
-                dailyLog = JSON.parse(localStorage.getItem('gulerDetoxLog_v2')) || [];
-                weightData = JSON.parse(localStorage.getItem('gulerDetoxWeight_v2')) || [];
-                shoppingList = JSON.parse(localStorage.getItem('gulerDetoxShopping_v2')) || [];
-                notes = localStorage.getItem('gulerDetoxNotes_v2') || '';
+                dailyLog = JSON.parse(localStorage.getItem('gulerDetoxLog_v3')) || [];
+                weightData = JSON.parse(localStorage.getItem('gulerDetoxWeight_v3')) || [];
+                shoppingList = JSON.parse(localStorage.getItem('gulerDetoxShopping_v3')) || [];
+                notes = localStorage.getItem('gulerDetoxNotes_v3') || '';
                 
-                const storedWater = JSON.parse(localStorage.getItem('gulerDetoxWater_v2'));
+                const storedWater = JSON.parse(localStorage.getItem('gulerDetoxWater_v3'));
                 const today = new Date().toISOString().slice(0, 10);
                 if (storedWater && storedWater.date === today) {
                     waterData = storedWater;
@@ -286,11 +298,11 @@
 
             } catch (e) { console.error("Yerel veriler okunurken hata oluştu:", e); }
         }
-        function saveLogToStorage() { localStorage.setItem('gulerDetoxLog_v2', JSON.stringify(dailyLog)); }
-        function saveWeightToStorage() { localStorage.setItem('gulerDetoxWeight_v2', JSON.stringify(weightData)); }
-        function saveShoppingListToStorage() { localStorage.setItem('gulerDetoxShopping_v2', JSON.stringify(shoppingList)); }
-        function saveWaterToStorage() { localStorage.setItem('gulerDetoxWater_v2', JSON.stringify(waterData)); }
-        function saveNotesToStorage() { localStorage.setItem('gulerDetoxNotes_v2', notes); }
+        function saveLogToStorage() { localStorage.setItem('gulerDetoxLog_v3', JSON.stringify(dailyLog)); }
+        function saveWeightToStorage() { localStorage.setItem('gulerDetoxWeight_v3', JSON.stringify(weightData)); }
+        function saveShoppingListToStorage() { localStorage.setItem('gulerDetoxShopping_v3', JSON.stringify(shoppingList)); }
+        function saveWaterToStorage() { localStorage.setItem('gulerDetoxWater_v3', JSON.stringify(waterData)); }
+        function saveNotesToStorage() { localStorage.setItem('gulerDetoxNotes_v3', notes); }
 
         // --- RENDER FONKSİYONLARI ---
         function renderAll() { renderLog(); renderWeightView(); renderShoppingList(); renderWaterTracker(); renderNotes(); }
@@ -369,12 +381,27 @@
         function renderShoppingList() {
             shoppingListItems.innerHTML = '';
             if (shoppingList.length === 0) { shoppingListItems.innerHTML = '<p class="text-gray-400">Listeniz boş.</p>'; return; }
-            shoppingList.forEach(item => {
-                const listItem = document.createElement('div');
-                listItem.className = `shopping-item bg-gray-800/50 p-3 rounded-lg flex justify-between items-center ${item.completed ? 'completed' : ''}`;
-                listItem.innerHTML = `<div class="flex items-center gap-3"><input type="checkbox" data-id="${item.id}" class="shopping-checkbox w-5 h-5 accent-cyan-400" ${item.completed ? 'checked' : ''}><span>${item.name}</span></div><button data-id="${item.id}" class="delete-shopping-item-btn text-red-400 hover:text-red-300 p-2 rounded-full"><i data-lucide="trash-2" class="w-5 h-5"></i></button>`;
-                shoppingListItems.appendChild(listItem);
-            });
+            
+            const groupedList = shoppingList.reduce((acc, item) => {
+                const group = item.source || 'Diğer';
+                if (!acc[group]) acc[group] = [];
+                acc[group].push(item);
+                return acc;
+            }, {});
+
+            for (const groupName in groupedList) {
+                const groupTitle = document.createElement('h4');
+                groupTitle.className = 'shopping-group-title';
+                groupTitle.textContent = groupName;
+                shoppingListItems.appendChild(groupTitle);
+
+                groupedList[groupName].forEach(item => {
+                    const listItem = document.createElement('div');
+                    listItem.className = `shopping-item bg-gray-800/50 p-3 rounded-lg flex justify-between items-center ${item.completed ? 'completed' : ''}`;
+                    listItem.innerHTML = `<div class="flex items-center gap-3"><input type="checkbox" data-id="${item.id}" class="shopping-checkbox w-5 h-5 accent-cyan-400" ${item.completed ? 'checked' : ''}><span>${item.name}</span></div><button data-id="${item.id}" class="delete-shopping-item-btn text-red-400 hover:text-red-300 p-2 rounded-full"><i data-lucide="trash-2" class="w-5 h-5"></i></button>`;
+                    shoppingListItems.appendChild(listItem);
+                });
+            }
             lucide.createIcons();
         }
 
@@ -392,9 +419,7 @@
             lucide.createIcons();
         }
 
-        function renderNotes() {
-            notesArea.value = notes;
-        }
+        function renderNotes() { notesArea.value = notes; }
 
         // --- API İŞLEMLERİ ---
         async function fetchFromAPI(prompt, schema) {
@@ -512,21 +537,24 @@
         
         async function fetchTipOfTheDay() {
             const today = new Date().toISOString().slice(0, 10);
-            const storedTip = JSON.parse(localStorage.getItem('gulerDetoxTip_v2'));
+            const storedTip = JSON.parse(localStorage.getItem('gulerDetoxTip_v3'));
 
             if (storedTip && storedTip.date === today) {
-                tipOfTheDayDiv.textContent = storedTip.tip;
-                tipOfTheDayDiv.classList.remove('hidden');
+                tipTextSpan.textContent = storedTip.tip;
+                tipOfTheDayDiv.style.display = 'flex';
                 return;
             }
             
             chatHistory = [];
             const prompt = "Bana sağlık, detoks veya motivasyonla ilgili, güne başlarken okunacak ilham verici ve kısa bir ipucu ver. Cevabı sadece ipucunun kendisi olarak, tırnak işaretleri olmadan ver.";
-            const resultText = await fetchFromAPI(prompt);
+            const resultText = await fetchFromAPI(prompt, {type: "OBJECT", properties: {tip: {type: "STRING"}}});
             if(resultText) {
-                tipOfTheDayDiv.textContent = resultText;
-                tipOfTheDayDiv.classList.remove('hidden');
-                localStorage.setItem('gulerDetoxTip_v2', JSON.stringify({ date: today, tip: resultText }));
+                try {
+                    const parsedTip = JSON.parse(resultText).tip;
+                    tipTextSpan.textContent = parsedTip;
+                    tipOfTheDayDiv.style.display = 'flex';
+                    localStorage.setItem('gulerDetoxTip_v3', JSON.stringify({ date: today, tip: parsedTip }));
+                } catch { /* Hata durumunda ipucu gösterme */ }
             }
         }
 
@@ -584,7 +612,7 @@
                         let addedCount = 0;
                         recipe.ingredients.forEach(ingredient => {
                             if (!shoppingList.some(item => item.name.toLowerCase() === ingredient.toLowerCase())) {
-                                shoppingList.push({ id: new Date().toISOString() + ingredient, name: ingredient, completed: false });
+                                shoppingList.push({ id: new Date().toISOString() + ingredient, name: ingredient, completed: false, source: recipe.recipeName });
                                 addedCount++;
                             }
                         });
@@ -639,13 +667,27 @@
                 const glassBtn = e.target.closest('.water-glass-btn');
                 if(!glassBtn) return;
                 const index = parseInt(glassBtn.dataset.index);
+                const currentCount = waterData.count;
+                
                 if (waterData.count === index) {
                     waterData.count--;
                 } else {
                     waterData.count = index;
                 }
+                
+                // Su tüketimini günlüğe ekle/çıkar
+                const waterLogName = "1 Bardak Su";
+                if (waterData.count > currentCount) { // Su eklendi
+                    dailyLog.push({ id: new Date().toISOString(), recipeName: waterLogName, timestamp: new Date().toISOString() });
+                } else { // Su çıkarıldı
+                    const lastWaterLogIndex = dailyLog.findLastIndex(log => log.recipeName === waterLogName);
+                    if(lastWaterLogIndex > -1) dailyLog.splice(lastWaterLogIndex, 1);
+                }
+                
                 saveWaterToStorage();
+                saveLogToStorage();
                 renderWaterTracker();
+                renderLog();
             });
 
             notesArea.addEventListener('input', (e) => {
