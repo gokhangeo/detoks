@@ -200,6 +200,16 @@
                     </form>
                     <div id="notes-list" class="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar"><p class="text-gray-400">Henüz not eklemediniz.</p></div>
                 </div>
+                <!-- Veri Yönetimi -->
+                <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10">
+                    <h2 class="text-2xl font-bold text-cyan-300 mb-4">Veri Yönetimi</h2>
+                     <p class="text-sm text-gray-400 mb-4">Tüm uygulama verilerinizi (günlükler, kilo, listeler, notlar) tek bir dosyada yedekleyin veya daha önce aldığınız yedeği geri yükleyin.</p>
+                    <div class="flex flex-col md:flex-row gap-4 mt-4">
+                        <button id="export-data-btn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"><i data-lucide="download" class="w-5 h-5"></i> Verileri Dışa Aktar (Yedekle)</button>
+                        <button id="import-data-btn" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"><i data-lucide="upload" class="w-5 h-5"></i> Verileri İçe Aktar (Geri Yükle)</button>
+                        <input type="file" id="import-file-input" class="hidden" accept=".json">
+                    </div>
+                </div>
             </div>
 
             <!-- Kilo Takibi Görünümü -->
@@ -242,15 +252,18 @@
             "AIzaSyDpXMmXusv4xXcxMDHbDzm8_9EQIBXsKo4"
         ];
         let currentApiKeyIndex = 0;
+        const APP_DATA_KEY = 'gulerDetoksAsistaniData_v1';
 
         let weightChart;
         let localRecipes = [];
-        let dailyLog = [];
-        let weightData = [];
-        let shoppingList = [];
-        let exerciseList = [];
-        let notesList = [];
-        let waterData = { date: '', count: 0 };
+        let appData = {
+            dailyLog: [],
+            weightData: [],
+            shoppingList: [],
+            exerciseList: [],
+            notesList: [],
+            waterData: { date: new Date().toISOString().slice(0, 10), count: 0 },
+        };
         let chatHistory = [];
         let lastRecipeQuery = '';
 
@@ -300,6 +313,9 @@
         const exerciseListItems = document.getElementById('exercise-list-items');
         const recipeSearchForm = document.getElementById('recipe-search-form');
         const recipeSearchInput = document.getElementById('recipe-search-input');
+        const exportDataBtn = document.getElementById('export-data-btn');
+        const importDataBtn = document.getElementById('import-data-btn');
+        const importFileInput = document.getElementById('import-file-input');
 
         // --- MESAJ GÖSTERİM FONKSİYONLARI ---
         function showMessage(element, message, duration = 3000) {
@@ -322,45 +338,34 @@
         }
 
         // --- VERİ YÖNETİMİ (localStorage) ---
-        function loadDataFromStorage() {
-            try {
-                dailyLog = JSON.parse(localStorage.getItem('gulerDetoxLog_v4')) || [];
-                weightData = JSON.parse(localStorage.getItem('gulerDetoxWeight_v4')) || [];
-                shoppingList = JSON.parse(localStorage.getItem('gulerDetoxShopping_v4')) || [];
-                notesList = JSON.parse(localStorage.getItem('gulerDetoxNotes_v4')) || [];
-                
-                const today = new Date().toISOString().slice(0, 10);
-                
-                const storedWater = JSON.parse(localStorage.getItem('gulerDetoxWater_v4'));
-                if (storedWater && storedWater.date === today) {
-                    waterData = storedWater;
-                } else {
-                    waterData = { date: today, count: 0 };
-                    saveWaterToStorage();
-                }
-                
-                const storedExercises = JSON.parse(localStorage.getItem('gulerDetoxExercise_v4'));
-                if (storedExercises && storedExercises.date === today) {
-                    exerciseList = storedExercises.list;
-                } else {
-                    exerciseList = [];
-                    saveExerciseToStorage();
-                }
-
-            } catch (e) { console.error("Yerel veriler okunurken hata oluştu:", e); }
+        function saveDataToStorage() {
+            localStorage.setItem(APP_DATA_KEY, JSON.stringify(appData));
         }
-        function saveLogToStorage() { localStorage.setItem('gulerDetoxLog_v4', JSON.stringify(dailyLog)); }
-        function saveWeightToStorage() { localStorage.setItem('gulerDetoxWeight_v4', JSON.stringify(weightData)); }
-        function saveShoppingListToStorage() { localStorage.setItem('gulerDetoxShopping_v4', JSON.stringify(shoppingList)); }
-        function saveWaterToStorage() { localStorage.setItem('gulerDetoxWater_v4', JSON.stringify(waterData)); }
-        function saveNotesToStorage() { localStorage.setItem('gulerDetoxNotes_v4', JSON.stringify(notesList)); }
-        function saveExerciseToStorage() { 
-            const today = new Date().toISOString().slice(0, 10);
-            localStorage.setItem('gulerDetoxExercise_v4', JSON.stringify({ date: today, list: exerciseList }));
+
+        function loadDataFromStorage() {
+            const savedData = localStorage.getItem(APP_DATA_KEY);
+            if (savedData) {
+                appData = JSON.parse(savedData);
+                // Tarih kontrolü
+                const today = new Date().toISOString().slice(0, 10);
+                if (appData.waterData?.date !== today) {
+                    appData.waterData = { date: today, count: 0 };
+                }
+                if (appData.exerciseList?.date !== today) {
+                     appData.exerciseList = [];
+                }
+            }
         }
 
         // --- RENDER FONKSİYONLARI ---
-        function renderAll() { renderLog(); renderWeightView(); renderShoppingList(); renderWaterTracker(); renderNotes(); renderExercisePlan(); }
+        function renderAll() { 
+            renderLog(); 
+            renderWeightView(); 
+            renderShoppingList(); 
+            renderWaterTracker(); 
+            renderNotes(); 
+            renderExercisePlan(); 
+        }
         
         function renderRecipes(recipes) {
             recipesGrid.innerHTML = '';
@@ -383,7 +388,7 @@
 
         function renderLog() {
             logList.innerHTML = '';
-            const sortedLog = [...dailyLog].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            const sortedLog = [...appData.dailyLog].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
             if (sortedLog.length === 0) { logList.innerHTML = '<p class="text-gray-400">Henüz bir şey içmediniz.</p>'; return; }
             sortedLog.forEach(log => {
                 const logItem = document.createElement('div');
@@ -395,7 +400,7 @@
         }
 
         function renderWeightView() {
-            const sortedWeight = [...weightData].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            const sortedWeight = [...appData.weightData].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
             if (sortedWeight.length > 0) {
                 const startWeight = sortedWeight[0].weight;
                 const currentWeight = sortedWeight[sortedWeight.length - 1].weight;
@@ -435,9 +440,9 @@
         
         function renderShoppingList() {
             shoppingListItems.innerHTML = '';
-            if (shoppingList.length === 0) { shoppingListItems.innerHTML = '<p class="text-gray-400">Listeniz boş.</p>'; return; }
+            if (appData.shoppingList.length === 0) { shoppingListItems.innerHTML = '<p class="text-gray-400">Listeniz boş.</p>'; return; }
             
-            const groupedList = shoppingList.reduce((acc, item) => {
+            const groupedList = appData.shoppingList.reduce((acc, item) => {
                 const group = item.source || 'Diğer';
                 if (!acc[group]) acc[group] = [];
                 acc[group].push(item);
@@ -462,9 +467,9 @@
 
         function renderWaterTracker() {
             waterTracker.innerHTML = '';
-            waterCountSpan.textContent = waterData.count;
+            waterCountSpan.textContent = appData.waterData.count;
             for (let i = 1; i <= 15; i++) {
-                const isFull = i <= waterData.count;
+                const isFull = i <= appData.waterData.count;
                 const glass = document.createElement('button');
                 glass.dataset.index = i;
                 glass.className = `water-glass-btn p-2 rounded-lg transition-colors ${isFull ? 'bg-sky-500' : 'bg-slate-700 hover:bg-slate-600'}`;
@@ -476,8 +481,8 @@
 
         function renderNotes() {
             notesListDiv.innerHTML = '';
-            if (notesList.length === 0) { notesListDiv.innerHTML = '<p class="text-gray-400">Henüz not eklemediniz.</p>'; return; }
-            notesList.forEach(note => {
+            if (appData.notesList.length === 0) { notesListDiv.innerHTML = '<p class="text-gray-400">Henüz not eklemediniz.</p>'; return; }
+            appData.notesList.forEach(note => {
                 const noteItem = document.createElement('div');
                 noteItem.className = 'bg-gray-800/50 p-3 rounded-lg flex justify-between items-center';
                 noteItem.innerHTML = `
@@ -494,8 +499,8 @@
 
         function renderExercisePlan() {
             exerciseListItems.innerHTML = '';
-            if (exerciseList.length === 0) { exerciseListItems.innerHTML = '<p class="text-gray-400">Bugün için egzersiz eklemediniz.</p>'; return; }
-            exerciseList.forEach(item => {
+            if (appData.exerciseList.length === 0) { exerciseListItems.innerHTML = '<p class="text-gray-400">Bugün için egzersiz eklemediniz.</p>'; return; }
+            appData.exerciseList.forEach(item => {
                 const listItem = document.createElement('div');
                 listItem.className = `list-item bg-gray-800/50 p-3 rounded-lg flex justify-between items-center ${item.completed ? 'completed' : ''}`;
                 listItem.innerHTML = `<div class="flex items-center gap-3"><input type="checkbox" data-id="${item.id}" class="exercise-checkbox w-5 h-5 accent-cyan-400" ${item.completed ? 'checked' : ''}><span>${item.name}</span></div><button data-id="${item.id}" class="delete-exercise-btn text-red-400 hover:text-red-300 p-2 rounded-full"><i data-lucide="trash-2" class="w-5 h-5"></i></button>`;
@@ -699,8 +704,8 @@
                 e.preventDefault();
                 const weightValue = newWeightInput.value;
                 if (!weightValue || isNaN(parseFloat(weightValue))) return;
-                weightData.push({ id: new Date().toISOString(), weight: parseFloat(weightValue), timestamp: new Date().toISOString() });
-                saveWeightToStorage();
+                appData.weightData.push({ id: new Date().toISOString(), weight: parseFloat(weightValue), timestamp: new Date().toISOString() });
+                saveDataToStorage();
                 renderWeightView();
                 newWeightInput.value = '';
             });
@@ -713,8 +718,8 @@
                     const recipeIndex = addLogBtn.dataset.recipeIndex;
                     const recipe = localRecipes[recipeIndex];
                     if (recipe) {
-                        dailyLog.push({ id: new Date().toISOString(), recipeName: recipe.recipeName, timestamp: new Date().toISOString() });
-                        saveLogToStorage();
+                        appData.dailyLog.push({ id: new Date().toISOString(), recipeName: recipe.recipeName, timestamp: new Date().toISOString() });
+                        saveDataToStorage();
                         renderLog();
                         showMessage(successMessageDiv, `'${recipe.recipeName}' günlüğe eklendi!`);
                     }
@@ -726,12 +731,12 @@
                     if (recipe && recipe.ingredients) {
                         let addedCount = 0;
                         recipe.ingredients.forEach(ingredient => {
-                            if (!shoppingList.some(item => item.name.toLowerCase() === ingredient.toLowerCase())) {
-                                shoppingList.push({ id: new Date().toISOString() + ingredient, name: ingredient, completed: false, source: recipe.recipeName });
+                            if (!appData.shoppingList.some(item => item.name.toLowerCase() === ingredient.toLowerCase())) {
+                                appData.shoppingList.push({ id: new Date().toISOString() + ingredient, name: ingredient, completed: false, source: recipe.recipeName });
                                 addedCount++;
                             }
                         });
-                        saveShoppingListToStorage();
+                        saveDataToStorage();
                         renderShoppingList();
                         showMessage(successMessageDiv, `${addedCount} malzeme alışveriş listesine eklendi!`);
                     }
@@ -742,8 +747,8 @@
                 const button = e.target.closest('.delete-log-btn');
                 if(!button) return;
                 const idToDelete = button.dataset.id;
-                dailyLog = dailyLog.filter(log => log.id !== idToDelete);
-                saveLogToStorage();
+                appData.dailyLog = appData.dailyLog.filter(log => log.id !== idToDelete);
+                saveDataToStorage();
                 renderLog();
             });
 
@@ -751,8 +756,8 @@
                 const button = e.target.closest('.delete-weight-btn');
                 if(!button) return;
                 const idToDelete = button.dataset.id;
-                weightData = weightData.filter(entry => entry.id !== idToDelete);
-                saveWeightToStorage();
+                appData.weightData = appData.weightData.filter(entry => entry.id !== idToDelete);
+                saveDataToStorage();
                 renderWeightView();
             });
             
@@ -761,20 +766,20 @@
                 const checkbox = e.target.closest('.shopping-checkbox');
                 if (deleteBtn) {
                     const idToDelete = deleteBtn.dataset.id;
-                    shoppingList = shoppingList.filter(item => item.id !== idToDelete);
+                    appData.shoppingList = appData.shoppingList.filter(item => item.id !== idToDelete);
                 }
                 if (checkbox) {
                     const idToToggle = checkbox.dataset.id;
-                    const item = shoppingList.find(item => item.id === idToToggle);
+                    const item = appData.shoppingList.find(item => item.id === idToToggle);
                     if(item) item.completed = !item.completed;
                 }
-                saveShoppingListToStorage();
+                saveDataToStorage();
                 renderShoppingList();
             });
 
             clearShoppingListBtn.addEventListener('click', () => {
-                shoppingList = [];
-                saveShoppingListToStorage();
+                appData.shoppingList = [];
+                saveDataToStorage();
                 renderShoppingList();
             });
 
@@ -782,24 +787,23 @@
                 const glassBtn = e.target.closest('.water-glass-btn');
                 if(!glassBtn) return;
                 const index = parseInt(glassBtn.dataset.index);
-                const currentCount = waterData.count;
+                const currentCount = appData.waterData.count;
                 
-                if (waterData.count === index) {
-                    waterData.count--;
+                if (appData.waterData.count === index) {
+                    appData.waterData.count--;
                 } else {
-                    waterData.count = index;
+                    appData.waterData.count = index;
                 }
                 
                 const waterLogName = "1 Bardak Su";
-                if (waterData.count > currentCount) { 
-                    dailyLog.push({ id: new Date().toISOString(), recipeName: waterLogName, timestamp: new Date().toISOString() });
+                if (appData.waterData.count > currentCount) { 
+                    appData.dailyLog.push({ id: new Date().toISOString(), recipeName: waterLogName, timestamp: new Date().toISOString() });
                 } else { 
-                    const lastWaterLogIndex = dailyLog.findLastIndex(log => log.recipeName === waterLogName);
-                    if(lastWaterLogIndex > -1) dailyLog.splice(lastWaterLogIndex, 1);
+                    const lastWaterLogIndex = appData.dailyLog.findLastIndex(log => log.recipeName === waterLogName);
+                    if(lastWaterLogIndex > -1) appData.dailyLog.splice(lastWaterLogIndex, 1);
                 }
                 
-                saveWaterToStorage();
-                saveLogToStorage();
+                saveDataToStorage();
                 renderWaterTracker();
                 renderLog();
             });
@@ -808,8 +812,8 @@
                 e.preventDefault();
                 const noteText = newNoteInput.value.trim();
                 if(!noteText) return;
-                notesList.push({ id: new Date().toISOString(), text: noteText });
-                saveNotesToStorage();
+                appData.notesList.push({ id: new Date().toISOString(), text: noteText });
+                saveDataToStorage();
                 renderNotes();
                 newNoteInput.value = '';
                 showMessage(successMessageDiv, 'Not eklendi!');
@@ -821,19 +825,19 @@
 
                 if(deleteBtn) {
                     const idToDelete = deleteBtn.dataset.id;
-                    notesList = notesList.filter(note => note.id !== idToDelete);
-                    saveNotesToStorage();
+                    appData.notesList = appData.notesList.filter(note => note.id !== idToDelete);
+                    saveDataToStorage();
                     renderNotes();
                 }
 
                 if(editBtn) {
                     const idToEdit = editBtn.dataset.id;
-                    const noteToEdit = notesList.find(note => note.id === idToEdit);
+                    const noteToEdit = appData.notesList.find(note => note.id === idToEdit);
                     if(noteToEdit) {
                         const newText = prompt("Notu düzenleyin:", noteToEdit.text);
                         if(newText !== null && newText.trim() !== '') {
                             noteToEdit.text = newText.trim();
-                            saveNotesToStorage();
+                            saveDataToStorage();
                             renderNotes();
                         }
                     }
@@ -844,8 +848,8 @@
                 e.preventDefault();
                 const exerciseName = newExerciseInput.value.trim();
                 if(!exerciseName) return;
-                exerciseList.push({ id: new Date().toISOString(), name: exerciseName, completed: false });
-                saveExerciseToStorage();
+                appData.exerciseList.push({ id: new Date().toISOString(), name: exerciseName, completed: false });
+                saveDataToStorage();
                 renderExercisePlan();
                 newExerciseInput.value = '';
             });
@@ -855,14 +859,14 @@
                 const checkbox = e.target.closest('.exercise-checkbox');
                 if (deleteBtn) {
                     const idToDelete = deleteBtn.dataset.id;
-                    exerciseList = exerciseList.filter(item => item.id !== idToDelete);
+                    appData.exerciseList = appData.exerciseList.filter(item => item.id !== idToDelete);
                 }
                 if (checkbox) {
                     const idToToggle = checkbox.dataset.id;
-                    const item = exerciseList.find(item => item.id === idToToggle);
+                    const item = appData.exerciseList.find(item => item.id === idToToggle);
                     if(item) item.completed = !item.completed;
                 }
-                saveExerciseToStorage();
+                saveDataToStorage();
                 renderExercisePlan();
             });
 
@@ -895,6 +899,54 @@
                     document.body.removeChild(tempTextArea);
                     showMessage(successMessageDiv, 'Plan panoya kopyalandı!');
                 }
+            });
+
+            exportDataBtn.addEventListener('click', () => {
+                try {
+                    const dataStr = JSON.stringify(appData, null, 2);
+                    const dataBlob = new Blob([dataStr], {type: "application/json"});
+                    const url = URL.createObjectURL(dataBlob);
+                    const link = document.createElement('a');
+                    const date = new Date().toISOString().slice(0, 10);
+                    link.download = `guler-detoks-yedek-${date}.json`;
+                    link.href = url;
+                    link.click();
+                    URL.revokeObjectURL(url);
+                    showMessage(successMessageDiv, 'Tüm verileriniz başarıyla yedeklendi!');
+                } catch (e) {
+                    showMessage(errorMessageDiv, 'Veriler yedeklenirken bir hata oluştu.');
+                    console.error("Yedekleme hatası:", e);
+                }
+            });
+
+            importDataBtn.addEventListener('click', () => {
+                importFileInput.click();
+            });
+
+            importFileInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        // Basit bir doğrulama
+                        if (importedData && typeof importedData === 'object' && Array.isArray(importedData.dailyLog)) {
+                            appData = importedData;
+                            saveDataToStorage();
+                            renderAll();
+                            showMessage(successMessageDiv, 'Verileriniz başarıyla geri yüklendi!');
+                        } else {
+                            throw new Error('Geçersiz dosya formatı.');
+                        }
+                    } catch (err) {
+                        showMessage(errorMessageDiv, 'Veriler geri yüklenirken bir hata oluştu: ' + err.message);
+                        console.error("Geri yükleme hatası:", err);
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = ''; // Aynı dosyayı tekrar seçebilmek için
             });
         }
 
