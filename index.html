@@ -195,6 +195,10 @@
                 <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10">
                     <h2 class="text-2xl font-bold text-cyan-300 mb-4">Kişisel Not Defterim</h2>
                     <textarea id="notes-area" class="w-full h-32 bg-slate-800/50 rounded-lg p-3 text-gray-300 placeholder-gray-500 focus:outline-none focus:border-cyan-400 border-2 border-transparent transition-colors" placeholder="Bugünkü hedeflerinizi, hislerinizi veya notlarınızı buraya yazın..."></textarea>
+                    <div class="flex justify-end gap-2 mt-2">
+                        <button id="clear-notes-btn" class="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 text-sm"><i data-lucide="trash-2" class="w-4 h-4"></i> Temizle</button>
+                        <button id="save-notes-btn" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 text-sm"><i data-lucide="save" class="w-4 h-4"></i> Kaydet</button>
+                    </div>
                 </div>
             </div>
 
@@ -287,6 +291,8 @@
         const waterTracker = document.getElementById('water-tracker');
         const waterCountSpan = document.getElementById('water-count');
         const notesArea = document.getElementById('notes-area');
+        const saveNotesBtn = document.getElementById('save-notes-btn');
+        const clearNotesBtn = document.getElementById('clear-notes-btn');
         const tipOfTheDayDiv = document.getElementById('tip-of-the-day');
         const tipTextSpan = document.getElementById('tip-text');
         const exerciseForm = document.getElementById('exercise-form');
@@ -782,8 +788,15 @@
                 renderLog();
             });
 
-            notesArea.addEventListener('input', (e) => {
-                notes = e.target.value;
+            saveNotesBtn.addEventListener('click', () => {
+                notes = notesArea.value;
+                saveNotesToStorage();
+                showMessage(successMessageDiv, 'Notlarınız kaydedildi!');
+            });
+
+            clearNotesBtn.addEventListener('click', () => {
+                notesArea.value = '';
+                notes = '';
                 saveNotesToStorage();
             });
 
