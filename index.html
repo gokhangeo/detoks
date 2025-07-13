@@ -78,6 +78,8 @@
             <p class="text-gray-400 mt-2">Sağlıklı yaşama modern bir dokunuş</p>
             <!-- Hata Mesajı Alanı -->
             <div id="error-message" class="hidden mt-4 bg-red-500/20 border border-red-500 text-red-300 p-3 rounded-lg"></div>
+            <!-- Başarı Mesajı Alanı -->
+            <div id="success-message" class="hidden mt-4 bg-green-500/20 border border-green-500 text-green-300 p-3 rounded-lg"></div>
         </header>
 
         <!-- Ana İçerik Alanı -->
@@ -128,7 +130,7 @@
                 <div id="diet-list-container" class="hidden">
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="text-xl font-bold text-cyan-300">Oluşturulan Diyet Listesi</h3>
-                        <button id="copy-diet-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 text-sm"><i data-lucide="copy" class="w-4 h-4"></i> Kopyala</button>
+                        <button id="share-diet-btn" class="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 text-sm"><i data-lucide="share-2" class="w-4 h-4"></i> Paylaş / Kopyala</button>
                     </div>
                     <div id="diet-list-content" class="custom-scrollbar overflow-x-auto"></div>
                 </div>
@@ -175,7 +177,7 @@
         let localRecipes = [];
         let dailyLog = [];
         let weightData = [];
-        let chatHistory = []; // Yapay zeka ile konuşma geçmişi için
+        let chatHistory = [];
 
         // --- DOM ELEMENTLERİ ---
         const views = {
@@ -192,6 +194,7 @@
         const newWeightInput = document.getElementById('new-weight-input');
         const navButtons = document.querySelectorAll('.nav-btn');
         const errorMessageDiv = document.getElementById('error-message');
+        const successMessageDiv = document.getElementById('success-message');
         const startWeightEl = document.getElementById('start-weight');
         const currentWeightEl = document.getElementById('current-weight');
         const totalChangeEl = document.getElementById('total-change');
@@ -201,14 +204,20 @@
         const dietLoader = document.getElementById('diet-loader');
         const dietListContainer = document.getElementById('diet-list-container');
         const dietListContent = document.getElementById('diet-list-content');
-        const copyDietBtn = document.getElementById('copy-diet-btn');
+        const shareDietBtn = document.getElementById('share-diet-btn');
         const categoryButtons = document.querySelectorAll('.category-btn');
         const backToCategoriesBtn = document.getElementById('back-to-categories-btn');
         const recipeListTitle = document.getElementById('recipe-list-title');
         const refreshCategoryBtn = document.getElementById('refresh-category-btn');
 
-        // --- HATA GÖSTERİM FONKSİYONU ---
-        function showError(message) { errorMessageDiv.textContent = message; errorMessageDiv.classList.remove('hidden'); }
+        // --- MESAJ GÖSTERİM FONKSİYONLARI ---
+        function showMessage(element, message, duration = 3000) {
+            element.textContent = message;
+            element.classList.remove('hidden');
+            setTimeout(() => {
+                element.classList.add('hidden');
+            }, duration);
+        }
 
         // --- GÖRÜNÜM DEĞİŞTİRME ---
         function switchView(viewName) {
@@ -262,9 +271,16 @@
             sortedLog.forEach(log => {
                 const logItem = document.createElement('div');
                 logItem.className = "bg-gray-800/50 p-3 rounded-lg flex justify-between items-center";
-                logItem.innerHTML = `<span class="font-semibold text-gray-200">${log.recipeName}</span><span class="text-xs text-gray-400">${new Date(log.timestamp).toLocaleString('tr-TR')}</span>`;
+                logItem.innerHTML = `
+                    <div>
+                        <span class="font-semibold text-gray-200">${log.recipeName}</span>
+                        <span class="block text-xs text-gray-400">${new Date(log.timestamp).toLocaleString('tr-TR')}</span>
+                    </div>
+                    <button data-id="${log.id}" class="delete-log-btn text-red-400 hover:text-red-300 p-2 rounded-full"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                `;
                 logList.appendChild(logItem);
             });
+            lucide.createIcons();
         }
 
         function renderWeightView() {
@@ -283,7 +299,13 @@
                 [...sortedWeight].reverse().forEach(entry => {
                     const item = document.createElement('div');
                     item.className = 'bg-gray-800/50 p-3 rounded-lg flex justify-between items-center text-sm';
-                    item.innerHTML = `<span class="text-gray-300">${new Date(entry.timestamp).toLocaleDateString('tr-TR')}</span><span class="font-semibold">${entry.weight.toFixed(1)} kg</span>`;
+                    item.innerHTML = `
+                        <div>
+                            <span class="font-semibold">${entry.weight.toFixed(1)} kg</span>
+                            <span class="block text-xs text-gray-400">${new Date(entry.timestamp).toLocaleDateString('tr-TR')}</span>
+                        </div>
+                        <button data-id="${entry.id}" class="delete-weight-btn text-red-400 hover:text-red-300 p-2 rounded-full"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                    `;
                     weightHistoryListEl.appendChild(item);
                 });
             } else {
@@ -291,6 +313,7 @@
                 weightHistoryListEl.innerHTML = '<p class="text-gray-400 text-sm">Henüz kilo kaydı girmediniz.</p>';
             }
             renderWeightChart(sortedWeight);
+            lucide.createIcons();
         }
 
         function renderWeightChart(data) {
@@ -305,10 +328,6 @@
             });
         }
         
-        function getBackupRecipes() {
-            return [ { recipeName: "Lipödem Destek Çorbası", description: "API limitine ulaşıldığında gösterilen, ödem atıcı ve iltihap azaltıcı özelliklere sahip şifalı bir çorba.", ingredients: ["1 adet pırasa", "2 adet kereviz sapı", "1 adet havuç", "1/2 demet maydanoz", "1 çay kaşığı zerdeçal", "1 parça taze zencefil", "4 su bardağı su", "Tuz, karabiber"], instructions: ["Tüm sebzeleri doğrayın.", "Su ile birlikte bir tencereye alın ve sebzeler yumuşayana kadar pişirin.", "Zerdeçal, rendelenmiş zencefil, tuz ve karabiberi ekleyip karıştırın.", "Blender'dan geçirerek pürüzsüz hale getirin ve sıcak servis yapın."] }, { recipeName: "Yeşil Enerji Suyu", description: "API limitine ulaşıldığında gösterilen, güne zinde başlamak için harika bir seçenek.", ingredients: ["1 avuç ıspanak", "1 adet salatalık", "1/2 yeşil elma", "1/2 limonun suyu", "1 su bardağı su"], instructions: ["Tüm malzemeleri blender'a atın.", "Pürüzsüz bir kıvam alana kadar yüksek hızda karıştırın.", "Soğuk olarak tüketin."] } ];
-        }
-
         // --- API İŞLEMLERİ ---
         async function fetchFromAPI(prompt, schema) {
             errorMessageDiv.classList.add('hidden');
@@ -328,7 +347,7 @@
                 return responseText;
             } catch (e) {
                 console.error("Gemini API hatası:", e);
-                showError(`API hatası: ${e.message}. Lütfen daha sonra tekrar deneyin.`);
+                showMessage(errorMessageDiv, `API hatası: ${e.message}. Lütfen daha sonra tekrar deneyin.`);
                 return null;
             }
         }
@@ -345,7 +364,7 @@
 
             const creativityBooster = ["mevsimsel malzemelerle", "enerji verici", "ferahlatıcı", "antioksidan zengini", "farklı bir baharat kullanarak", "sindirim sistemini destekleyen"];
             const randomTheme = creativityBooster[Math.floor(Math.random() * creativityBooster.length)];
-            const basePrompt = `Bana kilo vermeye odaklı, ${randomTheme} hazırlanan 4 adet tarif ver.`;
+            const basePrompt = `Bana kilo vermeye odaklı, ${randomTheme} hazırlanan 4 adet birbirinden farklı tarif ver.`;
             const categoryPrompts = {
                 detox: `${basePrompt} Bu tarifler genel detoks amaçlı olsun.`,
                 lipoedema: `${basePrompt} Bu tarifler özellikle lipödem hastaları için uygun, iltihap azaltıcı ve ödem atıcı özelliklere sahip 'detoks çorbası' olsun.`,
@@ -363,11 +382,11 @@
                     if (!Array.isArray(parsedData)) throw new Error();
                     localRecipes = parsedData;
                 } catch {
-                    showError("API'den tarif formatı anlaşılamadı."); localRecipes = getBackupRecipes();
+                    showMessage(errorMessageDiv, "API'den tarif formatı anlaşılamadı."); localRecipes = [];
                 }
             } else {
-                showError("Günlük API limitine ulaşıldı. Sizin için hazırladığımız özel tarifler gösteriliyor.");
-                localRecipes = getBackupRecipes();
+                showMessage(errorMessageDiv, "Günlük API limitine ulaşıldı. Lütfen daha sonra tekrar deneyin.");
+                localRecipes = [];
             }
             renderRecipes(localRecipes);
         }
@@ -391,7 +410,7 @@
                     renderDietTable(parsedData);
                     dietListContainer.classList.remove('hidden');
                 } catch {
-                    showError("Diyet listesi formatı anlaşılamadı.");
+                    showMessage(errorMessageDiv, "Diyet listesi formatı anlaşılamadı.");
                 }
             }
             lipoedemaDietBtn.disabled = false; generalDietBtn.disabled = false;
@@ -411,11 +430,11 @@
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><strong>${day.gun || ''}</strong></td>
-                    <td>${day.sabah || ''}</td>
-                    <td>${day.araOgun1 || '-'}</td>
-                    <td>${day.ogle || ''}</td>
-                    <td>${day.araOgun2 || '-'}</td>
-                    <td>${day.aksam || ''}</td>
+                    <td>${(day.sabah || '').replace(/\n/g, '<br>')}</td>
+                    <td>${(day.araOgun1 || '-').replace(/\n/g, '<br>')}</td>
+                    <td>${(day.ogle || '').replace(/\n/g, '<br>')}</td>
+                    <td>${(day.araOgun2 || '-').replace(/\n/g, '<br>')}</td>
+                    <td>${(day.aksam || '').replace(/\n/g, '<br>')}</td>
                 `;
                 tbody.appendChild(row);
             });
@@ -448,7 +467,7 @@
                 e.preventDefault();
                 const weightValue = newWeightInput.value;
                 if (!weightValue || isNaN(parseFloat(weightValue))) return;
-                weightData.push({ weight: parseFloat(weightValue), timestamp: new Date().toISOString() });
+                weightData.push({ id: new Date().toISOString(), weight: parseFloat(weightValue), timestamp: new Date().toISOString() });
                 saveWeightToStorage();
                 renderWeightView();
                 newWeightInput.value = '';
@@ -460,39 +479,60 @@
                 const recipeIndex = button.dataset.recipeIndex;
                 const recipe = localRecipes[recipeIndex];
                 if (recipe) {
-                    dailyLog.push({ recipeName: recipe.recipeName, timestamp: new Date().toISOString() });
+                    dailyLog.push({ id: new Date().toISOString(), recipeName: recipe.recipeName, timestamp: new Date().toISOString() });
                     saveLogToStorage();
                     renderLog();
-                    button.textContent = 'Eklendi!';
-                    button.classList.add('bg-green-500');
-                    setTimeout(() => {
-                        button.innerHTML = `<i data-lucide="plus-circle" class="w-5 h-5"></i> Bugün Bunu İçtim`;
-                        button.classList.remove('bg-green-500');
-                        lucide.createIcons();
-                    }, 2000);
+                    showMessage(successMessageDiv, `'${recipe.recipeName}' günlüğe eklendi!`);
                 }
             });
+            
+            logList.addEventListener('click', (e) => {
+                const button = e.target.closest('.delete-log-btn');
+                if(!button) return;
+                const idToDelete = button.dataset.id;
+                dailyLog = dailyLog.filter(log => log.id !== idToDelete);
+                saveLogToStorage();
+                renderLog();
+            });
 
-            copyDietBtn.addEventListener('click', () => {
+            weightHistoryListEl.addEventListener('click', (e) => {
+                const button = e.target.closest('.delete-weight-btn');
+                if(!button) return;
+                const idToDelete = button.dataset.id;
+                weightData = weightData.filter(entry => entry.id !== idToDelete);
+                saveWeightToStorage();
+                renderWeightView();
+            });
+
+            shareDietBtn.addEventListener('click', async () => {
                 const table = dietListContent.querySelector('table');
                 if(!table) return;
-                let textToCopy = '';
+                let textToCopy = 'Güler Detoks Asistanı - Beslenme Planım\n\n';
                 for (const row of table.rows) {
                     let rowText = [];
-                    for(const cell of row.cells) { rowText.push(cell.innerText.replace(/\n/g, ' ')); }
-                    textToCopy += rowText.join('\t') + '\n';
+                    for(const cell of row.cells) { rowText.push(cell.innerText.replace(/\n/g, ', ')); }
+                    textToCopy += rowText.join('\t| ') + '\n';
                 }
-                const tempTextArea = document.createElement('textarea');
-                tempTextArea.value = textToCopy;
-                document.body.appendChild(tempTextArea);
-                tempTextArea.select();
-                document.execCommand('copy');
-                document.body.removeChild(tempTextArea);
-                copyDietBtn.textContent = 'Kopyalandı!';
-                setTimeout(() => {
-                    copyDietBtn.innerHTML = `<i data-lucide="copy" class="w-4 h-4"></i> Kopyala`;
-                    lucide.createIcons();
-                }, 2000);
+
+                try {
+                    if (navigator.share) {
+                        await navigator.share({
+                            title: 'Güler Detoks Asistanı Beslenme Planı',
+                            text: textToCopy,
+                        });
+                        showMessage(successMessageDiv, 'Plan paylaşıldı!');
+                    } else {
+                        throw new Error('Web Share API not supported');
+                    }
+                } catch(err) {
+                    const tempTextArea = document.createElement('textarea');
+                    tempTextArea.value = textToCopy;
+                    document.body.appendChild(tempTextArea);
+                    tempTextArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(tempTextArea);
+                    showMessage(successMessageDiv, 'Plan panoya kopyalandı!');
+                }
             });
         }
 
