@@ -193,12 +193,12 @@
                 </div>
                 <!-- Not Defteri -->
                 <div class="bg-white/5 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/10">
-                    <h2 class="text-2xl font-bold text-cyan-300 mb-4">Kişisel Not Defterim</h2>
-                    <textarea id="notes-area" class="w-full h-32 bg-slate-800/50 rounded-lg p-3 text-gray-300 placeholder-gray-500 focus:outline-none focus:border-cyan-400 border-2 border-transparent transition-colors" placeholder="Bugünkü hedeflerinizi, hislerinizi veya notlarınızı buraya yazın..."></textarea>
-                    <div class="flex justify-end gap-2 mt-2">
-                        <button id="clear-notes-btn" class="bg-red-600 hover:bg-red-500 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 text-sm"><i data-lucide="trash-2" class="w-4 h-4"></i> Temizle</button>
-                        <button id="save-notes-btn" class="bg-green-600 hover:bg-green-500 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 text-sm"><i data-lucide="save" class="w-4 h-4"></i> Kaydet</button>
-                    </div>
+                    <h2 class="text-2xl font-bold text-cyan-300 mb-4">Kişisel Fikir Panosu</h2>
+                    <form id="notes-form" class="flex gap-2 mb-6">
+                        <input id="new-note-input" type="text" placeholder="Yeni bir not veya hedef ekle..." class="w-full bg-gray-700 text-white placeholder-gray-400 rounded-lg p-3 border-2 border-transparent focus:outline-none focus:border-cyan-400 transition-colors" required />
+                        <button type="submit" class="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-4 rounded-lg transition-colors">Ekle</button>
+                    </form>
+                    <div id="notes-list" class="space-y-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar"><p class="text-gray-400">Henüz not eklemediniz.</p></div>
                 </div>
             </div>
 
@@ -249,8 +249,8 @@
         let weightData = [];
         let shoppingList = [];
         let exerciseList = [];
+        let notesList = [];
         let waterData = { date: '', count: 0 };
-        let notes = '';
         let chatHistory = [];
         let lastRecipeQuery = '';
 
@@ -290,9 +290,9 @@
         const clearShoppingListBtn = document.getElementById('clear-shopping-list-btn');
         const waterTracker = document.getElementById('water-tracker');
         const waterCountSpan = document.getElementById('water-count');
-        const notesArea = document.getElementById('notes-area');
-        const saveNotesBtn = document.getElementById('save-notes-btn');
-        const clearNotesBtn = document.getElementById('clear-notes-btn');
+        const notesForm = document.getElementById('notes-form');
+        const newNoteInput = document.getElementById('new-note-input');
+        const notesListDiv = document.getElementById('notes-list');
         const tipOfTheDayDiv = document.getElementById('tip-of-the-day');
         const tipTextSpan = document.getElementById('tip-text');
         const exerciseForm = document.getElementById('exercise-form');
@@ -327,7 +327,7 @@
                 dailyLog = JSON.parse(localStorage.getItem('gulerDetoxLog_v4')) || [];
                 weightData = JSON.parse(localStorage.getItem('gulerDetoxWeight_v4')) || [];
                 shoppingList = JSON.parse(localStorage.getItem('gulerDetoxShopping_v4')) || [];
-                notes = localStorage.getItem('gulerDetoxNotes_v4') || '';
+                notesList = JSON.parse(localStorage.getItem('gulerDetoxNotes_v4')) || [];
                 
                 const today = new Date().toISOString().slice(0, 10);
                 
@@ -353,7 +353,7 @@
         function saveWeightToStorage() { localStorage.setItem('gulerDetoxWeight_v4', JSON.stringify(weightData)); }
         function saveShoppingListToStorage() { localStorage.setItem('gulerDetoxShopping_v4', JSON.stringify(shoppingList)); }
         function saveWaterToStorage() { localStorage.setItem('gulerDetoxWater_v4', JSON.stringify(waterData)); }
-        function saveNotesToStorage() { localStorage.setItem('gulerDetoxNotes_v4', notes); }
+        function saveNotesToStorage() { localStorage.setItem('gulerDetoxNotes_v4', JSON.stringify(notesList)); }
         function saveExerciseToStorage() { 
             const today = new Date().toISOString().slice(0, 10);
             localStorage.setItem('gulerDetoxExercise_v4', JSON.stringify({ date: today, list: exerciseList }));
@@ -474,7 +474,23 @@
             lucide.createIcons();
         }
 
-        function renderNotes() { notesArea.value = notes; }
+        function renderNotes() {
+            notesListDiv.innerHTML = '';
+            if (notesList.length === 0) { notesListDiv.innerHTML = '<p class="text-gray-400">Henüz not eklemediniz.</p>'; return; }
+            notesList.forEach(note => {
+                const noteItem = document.createElement('div');
+                noteItem.className = 'bg-gray-800/50 p-3 rounded-lg flex justify-between items-center';
+                noteItem.innerHTML = `
+                    <span class="text-gray-200 flex-grow">${note.text}</span>
+                    <div class="flex-shrink-0 flex gap-2 ml-4">
+                        <button data-id="${note.id}" class="edit-note-btn text-amber-400 hover:text-amber-300 p-2 rounded-full"><i data-lucide="file-pen-line" class="w-5 h-5"></i></button>
+                        <button data-id="${note.id}" class="delete-note-btn text-red-400 hover:text-red-300 p-2 rounded-full"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                    </div>
+                `;
+                notesListDiv.appendChild(noteItem);
+            });
+            lucide.createIcons();
+        }
 
         function renderExercisePlan() {
             exerciseListItems.innerHTML = '';
@@ -787,17 +803,41 @@
                 renderWaterTracker();
                 renderLog();
             });
-
-            saveNotesBtn.addEventListener('click', () => {
-                notes = notesArea.value;
+            
+            notesForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const noteText = newNoteInput.value.trim();
+                if(!noteText) return;
+                notesList.push({ id: new Date().toISOString(), text: noteText });
                 saveNotesToStorage();
-                showMessage(successMessageDiv, 'Notlarınız kaydedildi!');
+                renderNotes();
+                newNoteInput.value = '';
+                showMessage(successMessageDiv, 'Not eklendi!');
             });
 
-            clearNotesBtn.addEventListener('click', () => {
-                notesArea.value = '';
-                notes = '';
-                saveNotesToStorage();
+            notesListDiv.addEventListener('click', (e) => {
+                const deleteBtn = e.target.closest('.delete-note-btn');
+                const editBtn = e.target.closest('.edit-note-btn');
+
+                if(deleteBtn) {
+                    const idToDelete = deleteBtn.dataset.id;
+                    notesList = notesList.filter(note => note.id !== idToDelete);
+                    saveNotesToStorage();
+                    renderNotes();
+                }
+
+                if(editBtn) {
+                    const idToEdit = editBtn.dataset.id;
+                    const noteToEdit = notesList.find(note => note.id === idToEdit);
+                    if(noteToEdit) {
+                        const newText = prompt("Notu düzenleyin:", noteToEdit.text);
+                        if(newText !== null && newText.trim() !== '') {
+                            noteToEdit.text = newText.trim();
+                            saveNotesToStorage();
+                            renderNotes();
+                        }
+                    }
+                }
             });
 
             exerciseForm.addEventListener('submit', (e) => {
