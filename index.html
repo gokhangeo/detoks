@@ -115,7 +115,7 @@
                  </form>
                  
                  <h3 class="text-lg font-semibold text-gray-400 mb-4 text-center">Veya Hızlı Kategoriler</h3>
-                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                 <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <button data-category="detox" class="category-btn bg-teal-500 hover:bg-teal-400 text-slate-900 font-bold py-8 px-4 rounded-lg flex flex-col items-center justify-center gap-2 transition-colors duration-300">
                         <i data-lucide="blender" class="w-8 h-8"></i>
                         <span>Genel Detoks</span>
@@ -131,6 +131,10 @@
                     <button data-category="herbal-tea" class="category-btn bg-lime-500 hover:bg-lime-400 text-slate-900 font-bold py-8 px-4 rounded-lg flex flex-col items-center justify-center gap-2 transition-colors duration-300">
                         <i data-lucide="coffee" class="w-8 h-8"></i>
                         <span>Bitki Çayları</span>
+                    </button>
+                    <button data-category="diet-meal" class="category-btn bg-orange-500 hover:bg-orange-400 text-slate-900 font-bold py-8 px-4 rounded-lg flex flex-col items-center justify-center gap-2 transition-colors duration-300">
+                        <i data-lucide="utensils-crossed" class="w-8 h-8"></i>
+                        <span>Diyet Yemekleri</span>
                     </button>
                  </div>
                  <div id="recipe-list-view" class="hidden mt-6">
@@ -560,11 +564,10 @@
                     const result = await response.json();
                     
                     if (!response.ok) {
-                         // Hata "overloaded" veya "quota" içeriyorsa bir sonrakine geç
-                        if (result.error && (result.error.message.includes("overloaded") || result.error.message.includes("quota"))) {
-                             console.warn(`API Key ${currentApiKeyIndex + 1} failed with status ${response.status}. Trying next key.`);
+                        if (response.status === 429 || (result.error && result.error.message.includes("quota"))) {
+                             console.warn(`API Key ${currentApiKeyIndex + 1} limit reached. Trying next key.`);
                              currentApiKeyIndex = (currentApiKeyIndex + 1) % apiKeys.length;
-                             continue;
+                             continue; 
                         }
                         throw new Error(result.error?.message || `API Hatası: ${response.status}.`);
                     }
@@ -583,7 +586,7 @@
                     currentApiKeyIndex = (currentApiKeyIndex + 1) % apiKeys.length;
                 }
             }
-            showMessage(errorMessageDiv, "Tüm API anahtarları meşgul veya limitleri dolu. Lütfen yarın tekrar deneyin.");
+            showMessage(errorMessageDiv, "Tüm API anahtarlarının günlük limiti doldu. Lütfen yarın tekrar deneyin.");
             return null;
         }
 
@@ -595,7 +598,7 @@
             refreshCategoryBtn.classList.add('hidden');
             refreshCategoryBtn.dataset.query = query;
             
-            const categoryTitles = { detox: "Genel Detoks Tarifleri", lipoedema: "Lipödem Destek Çorbaları", diuretic: "Ödem Atıcı İçecekler", "herbal-tea": "Bitki Çayları" };
+            const categoryTitles = { detox: "Genel Detoks Tarifleri", lipoedema: "Lipödem Destek Çorbaları", diuretic: "Ödem Atıcı İçecekler", "herbal-tea": "Bitki Çayları", "diet-meal": "Diyet Yemek Tarifleri" };
             recipeListTitle.textContent = categoryTitles[query] || `Arama Sonuçları: "${query}"`;
 
             const creativityBooster = ["mevsimsel malzemelerle", "enerji verici", "ferahlatıcı", "antioksidan zengini", "farklı bir baharat kullanarak", "sindirim sistemini destekleyen"];
@@ -608,7 +611,8 @@
                     detox: `${basePrompt} Bu tarifler genel detoks amaçlı olsun.`,
                     lipoedema: `${basePrompt} Bu tarifler özellikle lipödem hastaları için uygun, iltihap azaltıcı ve ödem atıcı özelliklere sahip 'detoks çorbası' olsun.`,
                     diuretic: `${basePrompt} Bu tarifler ödem atıcı, ferahlatıcı ve soğuk içecekler olsun.`,
-                    "herbal-tea": `${basePrompt} Bu tarifler kilo verdirici, ödem atıcı veya rahatlatıcı özelliklere sahip 'bitki çayı' olsun.`
+                    "herbal-tea": `${basePrompt} Bu tarifler kilo verdirici, ödem atıcı veya rahatlatıcı özelliklere sahip 'bitki çayı' olsun.`,
+                    "diet-meal": `${basePrompt} Bu tarifler ana öğün olarak tüketilebilecek, doyurucu ama düşük kalorili 'diyet yemeği' olsun.`
                  };
                  prompt = categoryPrompts[query];
             } else { // Eğer serbest arama ise
